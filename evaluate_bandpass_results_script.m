@@ -45,7 +45,7 @@ bullshit_imgs = [13, 16, 22, 32, 37, 38, 42, 43, 45, 47, 52, 58, 70, 72,...
 
 
 
-for i = 22:length( test_files )
+for i = 1:length( test_files )
     
     temp_filename = test_files{i};
     load( temp_filename );

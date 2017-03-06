@@ -20,7 +20,7 @@ numCols = dims(2)/600;
 numRows = dims(1)/600;
 imgStack = uint16(zeros(600, 600, numCols*numRows));
 
-segManager = classSegmentationManager;
+% segManager = classSegmentationManager;
 
 % breaking up larger image
 tempIDX = 0;
@@ -33,85 +33,101 @@ for i=1:numCols
 end
 clear tempIDX
 imgCount = size(imgStack, 3);
-imEnt = zeros( size( imgStack ) );
+img_ent = zeros( size( imgStack ) );
 
 for i = 1:imgCount
     
     im = imgStack(:,:,i);
     
     % Search for texture in the image
-    imEnt(:,:,i) = entropyfilt(im, ones(9,9));
+    img_ent(:,:,i) = entropyfilt(im, ones(9,9));
 end
 
-imEnt = img_stack_to_img_2D( imEnt, [15 15] );
+img_ent = img_stack_to_img_2D( img_ent, [15 15] );
 
-% Smooth it out a little
 se = strel('disk',9);
-entSmooth = imclose(imEnt, se);
-figure(3);imagesc(entSmooth);colormap(gray)
+ent_smooth = imclose(img_ent, se);
+figure(3);imagesc(ent_smooth);colormap(gray)
 
-% find 3 levels in the smoothed image
-% I sped it up some by only passing in every 30th pixel
 tic();
-skipSize = 30;
-linearIm = entSmooth(:);
+skip_size = 30;
+ent_vector = ent_smooth(:);
 options = statset( 'MaxIter', 200 );
-gmm = fitgmdist(linearIm(1:skipSize:end), 3, 'replicates',3, 'Options', options);
-idx = reshape(cluster(gmm, entSmooth(:)), size(entSmooth));
+gmm = fitgmdist(ent_vector(1:skip_size:end), 3, 'replicates',3, 'Options', options);
+idx = reshape(cluster(gmm, ent_smooth(:)), size(ent_smooth));
 toc();
 
 % Order the clustering so that the indices are from min to max cluster mean
-[~,sortIdx] = sort(gmm.mu);
-newIdx = sortIdx(idx);
+[~,sorted_idx] = sort(gmm.mu);
+new_idx = sorted_idx(idx);
 
-figure(4);imagesc(newIdx)
+figure(4);imagesc(new_idx)
 
-% This is some cleanup shenanigans
-% Put all the small blobs with high intensity in the middle component
-% instead, that way if they aren't part of something bigger, they disappear
-bwInterior = (newIdx == 3);
-% We can use the distance transform to assing all "level-2" pixels to their nearest
-% "level-3", we'll do this per connected component so they are connected
-labelIm = bwlabel(bwInterior);
-[~,backIdx] = bwdist(bwInterior);
+% eliminate all objects below minimum size threshold, considering connected
+% pixels of class ( 2 || 3 ) as objects
 
-finalLabelIm = labelIm;
+bwInterior = (new_idx > 1);
+cc = bwconncomp(bwInterior);
 
-cc = bwconncomp(newIdx > 1);
-for i=1:cc.NumObjects
-    labels = labelIm(cc.PixelIdxList{i});
-    labels = labels(labels > 0);
-    
-    if ( isempty(labels) )
-        continue;
-    end
-    
-    closestIdx = backIdx(cc.PixelIdxList{i});
-    assignLabel = labelIm(closestIdx);
-    
-    finalLabelIm(cc.PixelIdxList{i}) = assignLabel;
-end
+sizeThresh = 10000;
+bSmall = cellfun(@(x)(length(x) < sizeThresh), cc.PixelIdxList);
 
-% Plot the results on top of the original image
-lcm = jet(20);
+new_idx(vertcat(cc.PixelIdxList{bSmall})) = 1;
 
-figure;imagesc(im);colormap(gray);
-hold on;
+figure(5);imagesc(new_idx)
 
-labels = unique(finalLabelIm(finalLabelIm>0));
-tic
-for i=1:length(labels)
-    bwC = false(size(finalLabelIm));
-    bwC(finalLabelIm == labels(i)) = true;
+% without doing anything else, lets see how the segmentation is just using
+% the classes 2 and 3 as belonging to cells
 
-    colorIdx = mod(i-1,20)+1;
-    
-    [B,L] = bwboundaries(bwC,'noholes');
-    for k = 1:length(B)
-       plot(B{k}(:,2), B{k}(:,1), '-', 'Color', lcm(colorIdx,:));
-    end
-    
-    fprintf( 'completed label %i of %i, t=%.2f\n', i, length(labels), toc);
-end
-hold off
+img_segged_bw = ( new_idx > 1 );
+
+img_segged = testIMG;
+img_segged( bwperim( ( new_idx > 1 ) ) == 1 ) = max(max(testIMG));
+
+img_segged_stack = img_2D_to_img_stack( img_segged, [600, 600] );
+img_bw_stack = img_2D_to_img_stack( ( new_idx > 1 ), [600, 600] );
+
+figure(6), imshow( img_segged, [] )
+
+% for i = 1:size( img_segged_stack, 3 )
+%    
+%     figure(7); subplot(1,2,1), imagesc( img_segged_stack(:,:,i)); colormap(gray);
+%     subplot( 1,2,2 ), imagesc( img_bw_stack(:,:,i) ); colormap(gray);
+%     pause
+%     
+% end
+
+ground_truth_file = 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\DIC_160308_2033_labels.mat';
+
+load( ground_truth_file );
+
+ignore_list = [13, 16, 22, 32, 37, 38, 42, 43, 45, 47, 52, 58, 70, 72,...
+    73, 74, 87, 88, 92, 94, 96, 101, 102, 103, 105, 107, 109, 110, 111,...
+    124, 125, 126, 134, 139, 140, 150, 152, 155, 161, 162, 165, 169, 170, 176,...
+    177, 179, 185, 186, 187, 190, 200, 201, 205, 206, 209, 210, 212, 216,...
+    217, 218, 223, 224, 225];
+
+
+[ ground_truth_img, cell_cnts, cell_pix_cnts] =...
+                              bw_stack_from_roi_cell(ROI_cell, [600 600], ignore_list );
+                          
+summary_stats = evaluate_seg_results( img_bw_stack, ground_truth_img, ROI_cell );
+
+summary_stats( ignore_list ) = [];
+
+detection_rate = mean( [summary_stats.detection_rate] );
+accuracy_rate = mean( [summary_stats.accuracy ] );
+detected_cells = sum( [summary_stats.detected_cells] );
+missed_cells = sum( [summary_stats.missed_cells] );
+
+
+cell_detection_rate = detected_cells / ( missed_cells + detected_cells );
+                          
+
+
+
+
+
+
+
 

@@ -6,7 +6,7 @@ function img_stack = img_2D_to_img_stack( img, dims )
 img2D_dims = size( img );
 data_type = class( img );
 
-if( length( dims ) ~= 2 )
+if( length( dims ) ~= 2 ) 
    error('dims should be a vector of length 2') 
 end
 
@@ -14,8 +14,8 @@ if( mod( img2D_dims(1), dims(1)) ~= 0 || mod( img2D_dims(2), dims(2)) )
    error('img dimensions and desired stack dimensions inconsistent.' ) 
 end
 
-if( ~isnumeric( img ) )
-    error('img is limited to numeric array due to programmer laziness.')
+if( ~isnumeric( img ) && ~islogical( img )  )
+    error('img is limited to numeric or logical array due to programmer laziness.')
 end
 
 numCols = img2D_dims(1)/dims(1);
