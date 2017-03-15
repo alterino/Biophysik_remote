@@ -1,20 +1,28 @@
-close all, clear all, clc %, warning('off','all')
+close all, clear all%, clc %, warning('off','all')
 
-% allFiles = dir( 'T:\Marino\Microscopy\150718\*.tif' );
-allFiles = dir( 'D:\OS_Biophysik\DIC_images\150718\*.tif' );
+allFiles = dir( 'T:\Marino\Microscopy\150718\*.tif' );
+% allFiles = dir( 'D:\OS_Biophysik\DIC_images\150718\*.tif' );
 filenames = {allFiles.name};
-dirStr = 'D:\OS_Biophysik\DIC_images\150718\';
+% dirStr = 'D:\OS_Biophysik\DIC_images\150718\';
+dirStr = 'T:\Marino\Microscopy\150718\';
 
-Q_DIR = 'D:\OS_Biophysik\DIC_images\150718\Q_mats\';
+% im_dic = imread( 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\DIC_160308_2033.tif');
+% im_stack_dic = img_2D_to_img_stack( im_dic, [600 600] );
+
+% Q_DIR = 'D:\OS_Biophysik\DIC_images\150718\Q_mats\';
 
 % cd('T:\Marino\Microscopy\150718');
 i = 1;
-for i = 1:numel(filenames)
+% for i = 1:numel(filenames)
+% for i = 1:size( im_stack_dic, 3 )
+for i = 1
     
     %     profile on
     
     % import image as double
     img = im2double(imread(strcat(dirStr, filenames{i})));
+%     img = im2double( im_stack_dic(:,:,3) );
+    
     img_trans = img';
     dims = size(img);
     
@@ -86,11 +94,21 @@ for i = 1:numel(filenames)
     %     clearvars R_cell
     %      R = R(:);
     
+    %     for alphuh = .3:.1:.9
+    %         for betuh = .0005:.0005:.01
+    
+%     file_str = 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\Processed\li_kanade\';
+%     
+%     file_str = strcat( file_str, sprintf( 'li_kanade_alpha_%.2f_beta_%.4f.mat', alphuh, betuh ) );
+    
+%     if( exist( file_str, 'file' ) )
+%         continue
+%     end
+    
     % placeholders for constant parameters gamma, beta, alpha, and epsilon
-    gammuh = .7;
-    betuh = .04;
-    alphuh = .2;
-    epsilun = 10e-6;
+    gammuh = .5;
+      betuh = .05;
+      alphuh = .4;
     tic
     fprintf( 'generating Q...' )
     Q = (H' * H) + gammuh * (R' * R);
@@ -108,24 +126,33 @@ for i = 1:numel(filenames)
     ell = -H' * g_star;
     fprintf( '  L generated, t = %.0f.\n', toc )
     fileNUM = sprintf( '%04d', i );
-    Q_STR = strcat( Q_DIR, 'Q_Mats', fileNUM, '.mat' );
-    save( Q_STR, 'Q_p', 'Q_n' );
+    %     Q_STR = strcat( Q_DIR, 'Q_Mats', fileNUM, '.mat' );
+    %     save( Q_STR, 'Q_p', 'Q_n' );
     
-    clearvars H R Q
+    %             clearvars H R Q
     
     % initializing values for values to be optimized
     
     f_star = ones( N, 1 );
     w8s = ones(N, 1);
     err = 1;
+    epsilun = 10e-6;
     j = 1;
     tic
     fprintf( 'Beginning optimization...\n')
-    while(err > epsilun)
+    f_stack = [];
+    while(err > epsilun && j <= 2000)
         f_old = f_star;
+        if( mod( j, 10 ) == 1 || j == 10000 )
+            idx = size( f_stack, 2 ) + 1;
+            f_stack(:, idx ) = f_old;
+        end
         A = (ell + betuh * w8s);
         B = 4*( Q_p*f_old ).*( Q_n*f_old );
         C = ( 2 * Q_p * f_old );
+        
+        % avoiding division by zero
+        C( C == 0 ) = eps(0);
         f_star = ( ( -A + sqrt( A.^2 +  B) ) ./ C ) .* f_old;
         w8s = 1 ./ ( f_star + alphuh );
         %         w8s = w8s';
@@ -133,7 +160,24 @@ for i = 1:numel(filenames)
         err = norm(f_star - f_old)^2;
         
         %         if( mod( j,10 ) == 0 )
-        fprintf( 'iteration: %i, err = %.3f, t = %.0f\n', j, err, toc );
+        
+        
+        
+        
+        fprintf( 'alpha=%.2f, beta=%.4f, iteration: %i, err=%.7f, t=%.0f\n',...
+            alphuh, betuh, j, err, toc );
+        
+        f_img = reshape(f_star, dims(2), dims(1))';
+        g_img = reshape(g_star, dims(2), dims(1))';
+        %     figure, imshow(f_img, [])
+        
+        figure(3), imshow(f_img, [])
+        figure(2), imshow(g_img, [])
+%         figure(2), imshow(g_img, [])
+
+        if( j >= 35 )
+            rdx = 5;
+        end
         if( mod( j, 1000) == 0 )
             % debug placeholder
         end
@@ -142,13 +186,25 @@ for i = 1:numel(filenames)
         j = j+1;
     end
     
-    f_img = reshape(f_star, dims(2), dims(1))';
-    g_img = reshape(g_star, dims(2), dims(1))';
-    figure, imshow(f_img, [])
-    figure, imshow(g_img, [])
-    figure, imshow(img, [])
-    figure, hist(f_star, 1000)
+%     save( file_str, 'f_stack', '-v7.3' );
     
-    close all
+    %         end
+    %     end
+        f_img = reshape(f_star, dims(2), dims(1))';
+        g_img = reshape(g_star, dims(2), dims(1))';
+        %     figure, imshow(f_img, [])
+        figure(2), imshow(g_img, [])
+        %     figure, imshow(img, [])
+        %     figure, hist(f_star, 1000)
+        for j = 1:size( f_stack, 2 )
+            temp_vec = f_stack( :, j );
+            temp_img = reshape( temp_vec, dims(2), dims(1) );
+    
+            figure(1), imshow( temp_img', [] );
+            title( sprintf( 'iteration: %i', j ) );
+            pause(.1)
+    
+        end
+    %     close all
     
 end

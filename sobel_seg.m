@@ -2,15 +2,16 @@ clearvars -except testIMG
 
 % lab path
 imgPATH = 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\DIC_160308_2033.tif';
-outPATH = 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\Processed\';
+% outPATH = 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\Processed\';
 
 % home path
 % imgPATH = 'D:\OS_Biophysik\DIC_images\DIC_160308_2033.tif';
 % outPATH = 'D:\OS_Biophysik\Processed\';
 
-if( ~exist( 'testIMG', 'var' ) )
+if( ~exist( 'testIMG' ) )
     testIMG = imread(imgPATH);
 end
+clear imgPATH
 
 figure(1);imagesc(testIMG);colormap(gray)
 
@@ -31,34 +32,36 @@ for i=1:numCols
             uint16( testIMG( 600*(i-1)+1:600*i, 600*(j-1)+1:600*j ) );
     end
 end
-clear tempIDX
+clear tempIDX numCols numRows
 imgCount = size(imgStack, 3);
-img_ent = zeros( size( imgStack ) );
+img_sob = zeros( size( imgStack ) );
 
 tic
 
 for i = 1:imgCount
-    im = imgStack(:,:,i);
     
+    im = imgStack(:,:,i);
     % Search for texture in the image
-    img_ent(:,:,i) = entropyfilt(im, ones(9,9));
+    img_sob(:,:,i) = imgradient(im);
 end
 
-img_ent = img_stack_to_img_2D( img_ent, [15 15] );
+img_sob = img_stack_to_img_2D( img_sob, [15 15] );
 
 se = strel('disk',9);
-ent_smooth = imclose(img_ent, se);
-figure(3);imagesc(ent_smooth);colormap(gray)
+sob_smooth = imclose(img_sob, se);
+figure(3);imagesc(sob_smooth);colormap(gray)
+clear se
 
-% % % this one uses gmm model *************************
 % num_clusts = 2;
+% % % this one uses gmm model *************************
 % % tic();
-% skip_size = 30;
-% ent_vector = ent_smooth(:);
+% skip_size = 40;
+% sob_vector = sob_smooth(:);
 % options = statset( 'MaxIter', 200 );
-% gmm = fitgmdist(ent_vector(1:skip_size:end), num_clusts, 'replicates',3, 'Options', options);
-% idx = reshape(cluster(gmm, ent_smooth(:)), size(ent_smooth));
+% gmm = fitgmdist(sob_vector(1:skip_size:end), num_clusts, 'replicates', 3, 'Options', options);
+% idx = reshape(cluster(gmm, sob_smooth(:)), size(sob_smooth));
 % % toc();
+% clear skip_size options sob_vector
 %
 % % Order the clustering so that the indices are from min to max cluster mean
 % [~,sorted_idx] = sort(gmm.mu);
@@ -66,17 +69,13 @@ figure(3);imagesc(ent_smooth);colormap(gray)
 % for j = 1:num_clusts
 %     temp(j) = find( sorted_idx == j );
 % end
-% sorted_idx = temp; clear temp
-% % some weird bug is happening here but I think the above fixed it
-% new_idx = sorted_idx(idx); %**********************
+% sorted_idx = temp;
+% new_idx = sorted_idx(idx);
+clear sorted_idx temp % **********************
 
-% this one uses otzu thresholding ******************************
-new_idx = imquantize( img_ent, multithresh( img_ent, 2 ) );
+% % this one uses otzu thresholding ******************************
+new_idx = imquantize( img_sob, multithresh( img_sob, 2 ) );
 figure(4);imagesc(new_idx)
-
-% eliminate all objects below minimum size threshold, considering connected
-% pixels of class ( 2 || 3 ) as objects
-
 
 % eliminate all objects below minimum size threshold, considering connected
 % pixels of class ( 2 || 3 ) as objects
@@ -88,6 +87,7 @@ sizeThresh = 10000;
 bSmall = cellfun(@(x)(length(x) < sizeThresh), cc.PixelIdxList);
 
 new_idx(vertcat(cc.PixelIdxList{bSmall})) = 1;
+clear bSmall cc
 
 figure(5);imagesc(new_idx)
 
@@ -124,11 +124,11 @@ ignore_list = [13, 16, 22, 32, 37, 38, 42, 43, 45, 47, 52, 58, 70, 72,...
     177, 179, 185, 186, 187, 190, 200, 201, 205, 206, 209, 210, 212, 216,...
     217, 218, 223, 224, 225];
 
-
 [ ground_truth_img, cell_cnts, cell_pix_cnts] =...
     bw_stack_from_roi_cell(ROI_cell, [600 600], ignore_list );
 
-summary_stats = evaluate_seg_results( img_bw_stack, ground_truth_img, ROI_cell );
+
+[summary_stats, missed_pics_idx] = evaluate_seg_results( img_bw_stack, ground_truth_img, ROI_cell );
 
 summary_stats( ignore_list ) = [];
 
@@ -144,7 +144,7 @@ cell_detection_rate = detected_cells / ( missed_cells + detected_cells );
 temp_idx = [16, 17, 20, 23, 24, 25, 27, 28];
 
 img_stack_classes = img_2D_to_img_stack( new_idx, [600 600] );
-img_stack_ent = img_2D_to_img_stack( img_ent, [600 600] );
+img_stack_sob = img_2D_to_img_stack( img_sob, [600 600] );
 
 out_dir = 'T:\Marino\presentation_files\';
 
@@ -152,33 +152,29 @@ for i = 1:length( temp_idx )
     
     file_str = sprintf( 'image_idx_%i', temp_idx(i) );
     
-    temp_img = double( imgStack( :,:, temp_idx(i) ) );
-    %     temp_img = (temp_img - min(min(temp_img)))/(max(max(temp_img)) - min(min(temp_img)));
-    
-    
-    
-%     temp_bw = img_bw_stack( :,:, temp_idx(i) );
-    temp_ent = double( img_stack_ent( :, :, temp_idx(i) ) );
+    temp_bw = img_bw_stack( :,:, temp_idx(i) );
+    temp_sob = img_stack_sob( :, :, temp_idx(i) );
     
     sat = 0.05;
-    lim = quantile(temp_ent,[sat,1-sat]);
-    temp_ent = min(1,max(0,(temp_ent-lim(1))/(lim(2)-lim(1))));
+    lim = quantile(temp_sob,[sat,1-sat]);
+    temp_sob = min(1,max(0,(temp_sob-lim(1))/(lim(2)-lim(1))));
     
-    lim = quantile(temp_img,[sat,1-sat]);
-    temp_img = min(1,max(0,(temp_img-lim(1))/(lim(2)-lim(1))));
+    file_str_sob = strcat( out_dir, file_str, '_sob.png' );
+    file_str_bw = strcat( out_dir, file_str, '_sob_bw.png' );
     
-    file_str_raw = strcat( out_dir, file_str, '_raw.tif' );
-    file_str_ent = strcat( out_dir, file_str, '_ent.png' );
-%     file_str_bw = strcat( out_dir, file_str, '_ent_bw.png' );
+    temp_sob = (temp_sob - min(min(temp_sob)));
+    temp_sob = temp_sob/max(max(temp_sob));
     
-    %     temp_ent = (temp_ent - min(min(temp_ent)));
-    %     temp_ent = temp_ent/max(max(temp_ent));
-    
-    imwrite( temp_img, file_str_raw );
-    imwrite( temp_ent, file_str_ent );
-%     imwrite( temp_bw, file_str_bw );
+    %     imwrite( temp_img, file_str_raw );
+    imwrite( temp_sob, file_str_sob );
+    imwrite( temp_bw, file_str_bw );
     
 end
+
+
+
+
+
 
 
 
