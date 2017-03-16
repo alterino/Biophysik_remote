@@ -14,11 +14,15 @@ end
 
 % figure(1);imagesc(testIMG);colormap(gray)
 
+wind_vec = 3:2:15;
+
 dims = size(testIMG);
 
 numCols = dims(2)/600;
 numRows = dims(1)/600;
 imgStack = uint16(zeros(600, 600, numCols*numRows));
+
+bw_stack_cell = cell( 1, length(wind_vec) );
 
 % segManager = classSegmentationManager;
 
@@ -37,12 +41,12 @@ img_ent = zeros( size( imgStack ) );
 
 wind_idx = 0;
 
-detection_rate = zeros( 1, length( 3:2:15 ) );
-false_rate = zeros( 1, length( 3:2:15 ) );
-accuracy_rate = zeros( 1, length( 3:2:15 ) );
-detected_cells = zeros( 1, length( 3:2:15 ) );
-missed_cells = zeros( 1, length( 3:2:15 ) );
-cell_detection_rate = zeros( 1, length( 3:2:15 ) );
+detection_rate = zeros( 1, length( wind_vec ) );
+false_rate = zeros( 1, length( wind_vec ) );
+accuracy_rate = zeros( 1, length( wind_vec ) );
+detected_cells = zeros( 1, length( wind_vec ) );
+missed_cells = zeros( 1, length( wind_vec ) );
+cell_detection_rate = zeros( 1, length( wind_vec ) );
 
 
 for wind = 3:2:15
@@ -166,12 +170,14 @@ for wind = 3:2:15
     
     out_dir = 'T:\Marino\presentation_files\';
     
+    bw_stack_cell{wind_idx} = img_bw_stack;
+    
     for i = 1:length( temp_idx )
         
         file_str = sprintf( 'wind_%02i_image_idx_%i', wind, temp_idx(i) );
         
         temp_img = double( imgStack( :,:, temp_idx(i) ) );
-        %     temp_img = (temp_img - min(min(temp_img)))/(max(max(temp_img)) - min(min(temp_img)));
+        % temp_img = (temp_img - min(min(temp_img)))/(max(max(temp_img)) - min(min(temp_img)));
         
         
         
@@ -194,11 +200,16 @@ for wind = 3:2:15
         
         imwrite( temp_img, file_str_raw );
         imwrite( temp_ent, file_str_ent );
-        %     imwrite( temp_bw, file_str_bw );
+        imwrite( temp_bw, file_str_bw );
         
     end
     
 end
+
+save( 'entropy_param_var_results.mat', 'accuracy_rate', 'detection_rate', 'false_rate',...
+    'detected_cells', 'missed_cells', 'cell_detection_rate', 'bw_stack_cell' );
+
+
 
 
 
