@@ -112,6 +112,7 @@ for i = 1:length( ROI_cell )
     if( ~isfield( temp_ROI, 'Label' ) )
         for j = 1:length( temp_ROI )
             temp_ROI(j).Label = 1;
+            temp_ROI(j).Comp_ROI = 0;
         end
     end
     ROI_cell{i} = temp_ROI;
@@ -224,7 +225,7 @@ while( ~del_flag )
     end
     
     if( ~found_bool )
-        fprintf('no cell found at this location\n')
+        warning('no ROI found at this location')
     end
     
 end
@@ -244,13 +245,87 @@ function edit_roi_Callback(hObject, eventdata, handles)
 
 % Update handles structure
 
-fprintf( 'breakboint holder\n' )
 
+ROI = handles.ROI{handles.picIDX};
+set( handles.direct_text, 'String', 'Choose ROI to remove' );
 
+figure(handles.segged_img.Parent);
+[x,y] = ginput(1);
+x = round(x); y = round(y);
 
+found_count = 0;
+temp_idx = zeros(1,2);
+for i = 1:length( ROI )
+    temp_mask = ROI(i).Mask;
+    if( temp_mask(y,x)==1 )
+        %         old_label = ROI(i).Label;
+        found_count = found_count+1;
+        temp_idx(found_count) = i;
+    end
+end
 
+if( found_count == 2 )
+    if( ROI(temp_idx(1)).Area > ROI(temp_idx(2)).Area )
+        cell_idx = temp_idx(1);
+        hole_idx = temp_idx(2);
+    else
+        cell_idx = temp_idx(2);
+        hole_idx = temp_idx(1);
+    end
+    
+    old_label = ROI(hole_idx).Label;
+    ROI(hole_idx).Label = 4;
+    handles.ROI{handles.picIDX} = ROI;
+    update_figures( handles );
+    
+    rem_bool = generate_binary_decision_dialog('',{'Remove selected ROI?'});
+    
+    if( rem_bool )
+        ROI(cell_idx).Mask =...
+              logical( max( ROI(cell_idx).Mask - ROI(hole_idx).Mask, 0 ) );
+        
+        [row, col] = find( ROI(cell_idx).Mask == 1 );
+        ROI(cell_idx).SubIdx = [row col];
+        
+        dim_x = handles.segged_img.Children.XData(2);
+        dim_y = handles.segged_img.Children.YData(2);
+        
+        ROI(cell_idx).LinIdx = sub2ind( [dim_y, dim_x], row, col );
+        ROI(cell_idx).Vert = [ROI(cell_idx).Vert; 0, 0];
+        ROI(cell_idx).Vert = [ROI(cell_idx).Vert; ROI(hole_idx).Vert];
+        ROI(cell_idx).Area = bwarea( ROI(cell_idx).Mask );
+        ROI(cell_idx).Comp_ROI = 1;
+        ROI(cell_idx).RectHull = [ min( col ), max( col ), min(row), max(row)];
+        ROI(hole_idx) = [];
+        handles.ROI{handles.picIDX} = ROI;
+        update_figures( handles );
+    else
+        ROI(hole_idx).Label = old_label;
+        handles.ROI{handles.picIDX} = ROI;
+        update_figures( handles );
+        fprintf('change aborted\n')
+    end
+else
+    switch found_count
+        case 0
+            warning('no ROI found at this location')
+        case 1
+            warning('only one ROI found at this location')
+        case 2
+            error('something went wrong. entered case statment inappropriately.')
+        otherwise
+            warning('more than two ROIs found at this location. Please correct labels')
+    end
+    %     return
+end
 
+% handles.ROI{handles.picIDX} = ROI;
+% update_figures( handles );
+set( handles.direct_text, 'String', 'Choose action to take' );
+
+% Update handles structure
 guidata(hObject, handles);
+
 
 
 % --- Executes on button press in label_ROI.
@@ -292,7 +367,7 @@ for i = 1:length( ROI )
 end
 
 if( ~found_bool )
-    fprintf('no cell found at this location\n')
+    warning('no ROI found at this location\n')
 end
 
 handles.ROI{handles.picIDX} = ROI;
