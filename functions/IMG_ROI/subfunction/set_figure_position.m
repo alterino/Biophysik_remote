@@ -4,7 +4,8 @@ function coordinates = set_figure_position(ratio, factor, position)
 %Division of Biophysics / Group J.Piehler
 %University of Osnabrueck
 
-scrSize = get(0, 'ScreenSize');
+% scrSize = get(0, 'ScreenSize');
+scrSize = get(groot, 'ScreenSize');
 scrRatio = scrSize(3)/scrSize(4);
 
 if  ratio == scrRatio 

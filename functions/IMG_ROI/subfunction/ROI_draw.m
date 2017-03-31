@@ -41,6 +41,7 @@ while repeat
         [ROI.SubIdx(:,1),ROI.SubIdx(:,2)] = find(ROI.Mask); %[x y]
         ROI.LinIdx = sub2ind(size(ROI.Mask),ROI.SubIdx(:,1),ROI.SubIdx(:,2));
         ROI.RectHull = [min(ROI.SubIdx(:,2)) max(ROI.SubIdx(:,2)) min(ROI.SubIdx(:,1)) max(ROI.SubIdx(:,1))]; %[xmin xmax ymin ymax]
+        ROI.Label = [];
     else
         if generate_binary_decision_dialog('',{'Reset ROI?'});
             delete(hRoi)

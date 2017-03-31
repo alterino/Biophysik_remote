@@ -11,11 +11,11 @@ function [hImg,hAx,hFig] = IMG_plot(img,varargin)
 ip = inputParser;
 ip.KeepUnmatched = true;
 addRequired(ip,'img')
-addParamValue(ip,'hImg',[])
-addParamValue(ip,'FigSize',0.75, @(x)isscalar(x) && x > 0 && x <= 1)
-addParamValue(ip,'SatClim',[0.01 0.99])
-addParamValue(ip,'ColorMap','gray')
-addParamValue(ip,'ColorBar',[],@(x)ischar(x))
+addParameter(ip,'hImg',[])
+addParameter(ip,'FigSize',0.75, @(x)isscalar(x) && x > 0 && x <= 1)
+addParameter(ip,'SatClim',[0.01 0.99])
+addParameter(ip,'ColorMap','gray')
+addParameter(ip,'ColorBar',[],@(x)ischar(x))
 parse(ip,img,varargin{:});
 
 hImg = ip.Results.hImg;
@@ -49,6 +49,8 @@ if isempty(hImg)
     axis(hAx,'image','ij')
     try 
         caxis(hAx,nanquantile(img,satClim)); 
+    catch
+        % just skip it
     end
     
     if not(isempty(colorBar))

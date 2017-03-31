@@ -18,7 +18,7 @@ if size(img,3) == 1
     [~,hAx,hFig] = IMG_plot(img,varargin{:});
 else
     [~,hAx,hFig] = IMG_RGB_plot(img,varargin{:});
-end %if
+end % if
 
 roi_bool = 1;
 roi_cnt = 0;
