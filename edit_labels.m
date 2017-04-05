@@ -98,7 +98,7 @@ end
 
 if( isempty( inputs.ImageStack ) )
     % lab path
-    %     [filename, dirpath] = uigetfile( 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\*.tif', 'Select .tif image' );
+%     [filename, dirpath] = uigetfile( 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\*.tif', 'Select .tif image' );
     % home path
     [filename, dirpath] = uigetfile( 'D:\OS_Biophysik\Microscopy\*.tif', 'Select .tif image' );
     if( strcmp( filename(end-2:end), 'tif' ) ||...
@@ -131,8 +131,6 @@ handles.ImageStack = img_stack;
 handles.ROI = ROI_cell;
 handles.picIDX = 1;
 set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
-% handles.h_seg = [];
-% handles.h_lab = [];
 
 img_stack = handles.ImageStack;
 ROI_cell = handles.ROI;
@@ -277,8 +275,6 @@ function edit_roi_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Update handles structure
-
 
 ROI = handles.ROI{handles.picIDX};
 set( handles.direct_text, 'String', 'Choose ROI to remove' );
@@ -320,8 +316,6 @@ if( found_count == 2 )
         
         [row, col] = find( ROI(cell_idx).Mask == 1 );
         ROI(cell_idx).SubIdx = [row col];
-        
-        
         ROI(cell_idx).LinIdx = sub2ind( handles.ImageDims, row, col );
         ROI(cell_idx).Vert = [ROI(cell_idx).Vert; 0, 0];
         ROI(cell_idx).Vert = [ROI(cell_idx).Vert; ROI(hole_idx).Vert];
@@ -351,8 +345,6 @@ else
     %     return
 end
 
-% handles.ROI{handles.picIDX} = ROI;
-% update_figures( handles );
 set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
 
 % Update handles structure
@@ -373,12 +365,7 @@ set( handles.direct_text, 'String', 'Choose ROI to re-label' );
 figure(handles.segged_img.Parent);
 [x,y] = ginput(1);
 x = round(x); y = round(y);
-% hold on, plot( x, y, 'b*' )
 
-% dims_x = handles.segged_img.Parent.CurrentObject.XData(2);
-% dims_y = handles.segged_img.Parent.CurrentObject.YData(2);
-% lin_idx = sub2ind( [dims_y, dims_x], y, x );
-% hold on, plot( lin_idx, 'r*' )
 found_bool = 0;
 for i = 1:length( ROI )
     temp_mask = ROI(i).Mask;
@@ -470,9 +457,6 @@ save( filepath, 'ROI_cell' );
 function update_figures(hObject, eventdata, handles)
 % updates figures in GUI
 
-% clf(handles.segged_img);
-% clf(handles.labeled_img);
-
 img_stack = handles.ImageStack;
 ROI_cell = handles.ROI;
 
@@ -487,33 +471,13 @@ bw_edgemap = bwperim( bw );
 bw( bw_edgemap == 1 ) = 5;
 
 img(bw_edgemap==1) = max( max( img ) );
-% img = ( img - min(min(img)) )/( max(max(img)) - min(min(img)) );
 
-% handles.map = [0 1 0; 1 0 0; 0 0 0; .8 .8 .8];
 labels_map = [0 1 0; 1 0 0; 0 0 0; .8 .8 .8; 0 0 1];
 labels_1 = label2rgb( bw, labels_map, [.5 .5 .5]);
 
 
-
-% unfreezeColors( handles.segged_img );
-% imshow( img, [], 'Parent', handles.segged_img  )
-% freezeColors( handles.segged_img );
-
-% unfreezeColors( handles.labeled_img );
-
 set( handles.h_seg, 'CData' , img )
 set( handles.h_lab, 'CData', labels_1 );
-%     handles.labeled_img.Children(4).CData = labels_1;
-%     set( handles.segged_img, 'Children', handles.h_seg )
-%     set( handles.labeled_img, 'Children', handles.h_lab )
-
-% set( handles.segged_img.Children, 'CData' , img )
-% set( handles.labeled_img.Children, 'CData', labels_1 );
-
-% hold on, plot( edge_idx(:,1), edge_idx(:,2), 'b-' );
-% colormap( handles.map );
-%
-% freezeColors( handles.labeled_img );
 
 guidata(hObject, handles);
 
