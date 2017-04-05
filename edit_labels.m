@@ -55,7 +55,8 @@ function edit_labels_OpeningFcn(hObject, eventdata, handles, varargin)
 % Choose default command line output for edit_labels
 handles.output = hObject;
 
-set( handles.direct_text, 'String', 'Choose action to take' );
+% defaulted here. should be able to update this parameter
+handles.ImageDims = [600, 600];
 
 IP = inputParser;
 addParameter( IP, 'ROIs', [], @(x) isa(x, 'Integer' ));
@@ -66,7 +67,11 @@ parse( IP, varargin{:} );
 inputs = IP.Results;
 
 if( isempty( inputs.ROIs ) )
-    [filename, dirpath] = uigetfile( 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\*.mat', 'Select .mat file containg ROI info' );
+    %  lab path
+    %     [filename, dirpath] = uigetfile( 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\*.mat', 'Select .mat file containg ROI info' );
+    % home path
+    [filename, dirpath] = uigetfile( 'D:\OS_Biophysik\Microscopy\*.mat', 'Select .mat file containg ROI info' );
+    handles.LabelFilepath = strcat( dirpath, filename );
     temp_data = load( strcat( dirpath, filename ) );
     temp_fieldnames = fieldnames( temp_data );
     temp_varname = [];
@@ -92,7 +97,10 @@ else
 end
 
 if( isempty( inputs.ImageStack ) )
-    [filename, dirpath] = uigetfile( 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\*.tif', 'Select .tif image' );
+    % lab path
+    %     [filename, dirpath] = uigetfile( 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\*.tif', 'Select .tif image' );
+    % home path
+    [filename, dirpath] = uigetfile( 'D:\OS_Biophysik\Microscopy\*.tif', 'Select .tif image' );
     if( strcmp( filename(end-2:end), 'tif' ) ||...
             strcmp( filename(end-3:end), 'tiff' ) )
         img = imread( strcat( dirpath, filename ) );
@@ -122,8 +130,34 @@ end
 handles.ImageStack = img_stack;
 handles.ROI = ROI_cell;
 handles.picIDX = 1;
+set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
+% handles.h_seg = [];
+% handles.h_lab = [];
 
-update_figures( handles );
+img_stack = handles.ImageStack;
+ROI_cell = handles.ROI;
+
+img = img_stack(:,:,handles.picIDX);
+ROI = ROI_cell{handles.picIDX};
+bw = zeros( size( img ) );
+for i = 1:length( ROI )
+    bw(ROI(i).Mask == 1) = ROI(i).Label;
+end
+
+bw_edgemap = bwperim( bw );
+bw( bw_edgemap == 1 ) = 5;
+
+img(bw_edgemap==1) = max( max( img ) );
+
+% handles.map = [0 1 0; 1 0 0; 0 0 0; .8 .8 .8];
+labels_map = [0 1 0; 1 0 0; 0 0 0; .8 .8 .8; 0 0 1];
+labels_1 = label2rgb( bw, labels_map, [.5 .5 .5]);
+
+imshow( img, [], 'Parent', handles.segged_img  )
+handles.h_seg = findobj( handles.segged_img, 'Type', 'image' );
+%     figure( handles.labeled_img );
+imshow( labels_1, [], 'Parent', handles.labeled_img );
+handles.h_lab = findobj( handles.labeled_img, 'Type', 'image' );
 
 % Update handles structure
 guidata(hObject, handles);
@@ -160,22 +194,24 @@ while( roi_bool == 1 )
     %         'Polygon Area','Rectangle','Line','Point'});
     roiType = 'Freehand Area';
     set( handles.direct_text, 'String', 'Draw border around object of interest' );
-    ROI(roi_cnt) = ROI_draw(roiType,handles.segged_img);
+    [ROI(roi_cnt), hRoi] = ROI_draw(roiType,handles.segged_img);
+    delete(hRoi);
+    update_figures( hObject, eventdata, handles );
     ok = 0;
     label_opts = { 'alive cell', 'dead cell', 'other' };
     while( ~ok )
         [label_idx, ok] = listdlg( 'PromptString', 'Enter cell label: ',...
             'SelectionMode', 'single', 'ListString', label_opts );
-        ROI(i).Label = label_idx;
+        ROI(roi_cnt).Label = label_idx;
     end
     handles.ROI{handles.picIDX} = ROI;
-    update_figures( handles );
+    update_figures( hObject, eventdata, handles );
     roi_bool = generate_binary_decision_dialog('',{'Select another ROI?'});
 end
 
 
 
-set( handles.direct_text, 'String', 'Choose action to take' );
+set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
 
 % Update handles structure
 guidata(hObject, handles);
@@ -207,18 +243,18 @@ while( ~del_flag )
             old_label = ROI(i).Label;
             ROI(i).Label = 4;
             handles.ROI{handles.picIDX} = ROI;
-            update_figures(handles);
+            update_figures(hObject, eventdata, handles);
             del_bool = generate_binary_decision_dialog('',{'Delete selected ROI?'});
             if( del_bool )
                 ROI(i) = [];
                 handles.ROI{handles.picIDX} = ROI;
-                update_figures(handles);
+                update_figures(hObject, eventdata, handles);
                 del_flag = 1;
                 break
             else
                 ROI(i).Label = old_label;
                 handles.ROI{handles.picIDX} = ROI;
-                update_figures(handles);
+                update_figures(hObject, eventdata, handles);
                 del_flag = ~generate_binary_decision_dialog('',{'Re-select ROI?'});
             end
         end
@@ -230,11 +266,9 @@ while( ~del_flag )
     
 end
 
-set( handles.direct_text, 'String', 'Choose action to take' );
+set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
 % Update handles structure
 guidata(hObject, handles);
-
-
 
 
 % --- Executes on button press in edit_roi.
@@ -276,21 +310,19 @@ if( found_count == 2 )
     old_label = ROI(hole_idx).Label;
     ROI(hole_idx).Label = 4;
     handles.ROI{handles.picIDX} = ROI;
-    update_figures( handles );
+    update_figures( hObject, eventdata, handles );
     
     rem_bool = generate_binary_decision_dialog('',{'Remove selected ROI?'});
     
     if( rem_bool )
         ROI(cell_idx).Mask =...
-              logical( max( ROI(cell_idx).Mask - ROI(hole_idx).Mask, 0 ) );
+            logical( max( ROI(cell_idx).Mask - ROI(hole_idx).Mask, 0 ) );
         
         [row, col] = find( ROI(cell_idx).Mask == 1 );
         ROI(cell_idx).SubIdx = [row col];
         
-        dim_x = handles.segged_img.Children.XData(2);
-        dim_y = handles.segged_img.Children.YData(2);
         
-        ROI(cell_idx).LinIdx = sub2ind( [dim_y, dim_x], row, col );
+        ROI(cell_idx).LinIdx = sub2ind( handles.ImageDims, row, col );
         ROI(cell_idx).Vert = [ROI(cell_idx).Vert; 0, 0];
         ROI(cell_idx).Vert = [ROI(cell_idx).Vert; ROI(hole_idx).Vert];
         ROI(cell_idx).Area = bwarea( ROI(cell_idx).Mask );
@@ -298,11 +330,11 @@ if( found_count == 2 )
         ROI(cell_idx).RectHull = [ min( col ), max( col ), min(row), max(row)];
         ROI(hole_idx) = [];
         handles.ROI{handles.picIDX} = ROI;
-        update_figures( handles );
+        update_figures( hObject, eventdata, handles );
     else
         ROI(hole_idx).Label = old_label;
         handles.ROI{handles.picIDX} = ROI;
-        update_figures( handles );
+        update_figures( hObject, eventdata, handles );
         fprintf('change aborted\n')
     end
 else
@@ -321,7 +353,7 @@ end
 
 % handles.ROI{handles.picIDX} = ROI;
 % update_figures( handles );
-set( handles.direct_text, 'String', 'Choose action to take' );
+set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
 
 % Update handles structure
 guidata(hObject, handles);
@@ -355,7 +387,7 @@ for i = 1:length( ROI )
         found_bool = 1;
         ROI(i).Label = 4;
         handles.ROI{handles.picIDX} = ROI;
-        update_figures(handles);
+        update_figures(hObject, eventdata, handles);
         ok = 0;
         label_opts = { 'alive cell', 'dead cell', 'other' };
         while( ~ok )
@@ -371,8 +403,8 @@ if( ~found_bool )
 end
 
 handles.ROI{handles.picIDX} = ROI;
-update_figures( handles );
-set( handles.direct_text, 'String', 'Choose action to take' );
+update_figures( hObject, eventdata, handles );
+set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
 
 % Update handles structure
 guidata(hObject, handles);
@@ -385,7 +417,13 @@ function next_img_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 handles.picIDX = handles.picIDX + 1;
-update_figures(handles);
+if( handles.picIDX > size( handles.ImageStack, 3 ) )
+    handles.picIDX = 1;
+end
+
+set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
+
+update_figures(hObject, eventdata, handles);
 % Update handles structure
 guidata(hObject, handles);
 
@@ -397,7 +435,14 @@ function prev_img_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 handles.picIDX = handles.picIDX - 1;
-update_figures(handles);
+
+if( handles.picIDX < 1 )
+    handles.picIDX = size( handles.ImageStack, 3 );
+end
+
+set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
+
+update_figures(hObject, eventdata, handles);
 % Update handles structure
 guidata(hObject, handles);
 
@@ -412,17 +457,21 @@ prompt = 'Enter full file path:';
 dlg_title = 'Select file location';
 num_lines = 1;
 date_str = datestr(datetime('now'), 'yymmdd_HHMM' );
-defaultans = { strcat( 'label_data_edited_', date_str, '.mat' ) };
-filepath = cell2mat(inputdlg(prompt,dlg_title,num_lines,defaultans));
+defaultans = { strcat( handles.LabelFilepath(1:end-4), '_edited_', date_str, '.mat' ) };
+filepath = cell2mat( inputdlg(prompt,dlg_title,num_lines,defaultans) );
 
 ROI_cell = handles.ROI;
+image_stack = handles.ImageStack;
 
 save( filepath, 'ROI_cell' );
 
 
 
-function update_figures(handles)
+function update_figures(hObject, eventdata, handles)
 % updates figures in GUI
+
+% clf(handles.segged_img);
+% clf(handles.labeled_img);
 
 img_stack = handles.ImageStack;
 ROI_cell = handles.ROI;
@@ -435,11 +484,36 @@ for i = 1:length( ROI )
 end
 
 bw_edgemap = bwperim( bw );
+bw( bw_edgemap == 1 ) = 5;
 
 img(bw_edgemap==1) = max( max( img ) );
-handles.map = [0 1 0; 1 0 0; 0 0 0; .8 .8 .8];
-labels_1 = label2rgb( bw, handles.map, [.5 .5 .5]);
+% img = ( img - min(min(img)) )/( max(max(img)) - min(min(img)) );
 
-imshow( img, [], 'Parent', handles.segged_img );
-imshow( labels_1, [], 'Parent', handles.labeled_img );
-colormap( handles.map );
+% handles.map = [0 1 0; 1 0 0; 0 0 0; .8 .8 .8];
+labels_map = [0 1 0; 1 0 0; 0 0 0; .8 .8 .8; 0 0 1];
+labels_1 = label2rgb( bw, labels_map, [.5 .5 .5]);
+
+
+
+% unfreezeColors( handles.segged_img );
+% imshow( img, [], 'Parent', handles.segged_img  )
+% freezeColors( handles.segged_img );
+
+% unfreezeColors( handles.labeled_img );
+
+set( handles.h_seg, 'CData' , img )
+set( handles.h_lab, 'CData', labels_1 );
+%     handles.labeled_img.Children(4).CData = labels_1;
+%     set( handles.segged_img, 'Children', handles.h_seg )
+%     set( handles.labeled_img, 'Children', handles.h_lab )
+
+% set( handles.segged_img.Children, 'CData' , img )
+% set( handles.labeled_img.Children, 'CData', labels_1 );
+
+% hold on, plot( edge_idx(:,1), edge_idx(:,2), 'b-' );
+% colormap( handles.map );
+%
+% freezeColors( handles.labeled_img );
+
+guidata(hObject, handles);
+

@@ -1,4 +1,4 @@
-function [ROI,hRoi] = ROI_draw(roiType,hAx)
+function [ROI, hRoi] = ROI_draw(roiType,hAx)
 %written by
 %C.P.Richter
 %Division of Biophysics / Group J.Piehler
@@ -41,6 +41,7 @@ while repeat
         [ROI.SubIdx(:,1),ROI.SubIdx(:,2)] = find(ROI.Mask); %[x y]
         ROI.LinIdx = sub2ind(size(ROI.Mask),ROI.SubIdx(:,1),ROI.SubIdx(:,2));
         ROI.RectHull = [min(ROI.SubIdx(:,2)) max(ROI.SubIdx(:,2)) min(ROI.SubIdx(:,1)) max(ROI.SubIdx(:,1))]; %[xmin xmax ymin ymax]
+        ROI.Comp_ROI = [];
         ROI.Label = [];
     else
         if generate_binary_decision_dialog('',{'Reset ROI?'});
@@ -51,4 +52,6 @@ while repeat
         end %if
     end %if
 end %while
+
+
 end %fun
