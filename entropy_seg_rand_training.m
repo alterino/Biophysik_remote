@@ -172,7 +172,7 @@ for i = 5:10:size( imgStack, 3 )
     
 end
 
-save( 'entropy_rand_samp_data.mat', 'summary_stats' )
+save( 'entropy_rand_samp_data_updated.mat', 'summary_stats' )
 
 
 

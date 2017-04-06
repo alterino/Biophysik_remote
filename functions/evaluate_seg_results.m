@@ -9,6 +9,8 @@ function [summary_stats, missed_pics_idx] = evaluate_seg_results( results_img_st
 summary_stats = struct([]);
 missed_pics_idx = [];
 
+dims = [ size( results_img_stack, 1 ), size( results_img_stack, 2 ) ];
+
 for j = 1:size( results_img_stack, 3 )
     
 %     if( j == 140 )
@@ -44,7 +46,7 @@ for j = 1:size( results_img_stack, 3 )
     %     end
     summary_stats(j).detected_cells = temp_detected_cells;
     summary_stats(j).missed_cells = temp_missed_cells;
-    summary_stats(j).accuracy = sum( sum( temp_binary == temp_ground_truth ) ) / (600*600);
+    summary_stats(j).accuracy = sum( sum( temp_binary == temp_ground_truth ) ) / (dims(1)*dims(2) );
     pix_locs = find( temp_ground_truth == 1 );
     summary_stats(j).detection_rate = sum( temp_binary( pix_locs ) == 1 )/length(pix_locs);
     empty_locs = find( temp_ground_truth == 0 );
