@@ -50,29 +50,29 @@ se = strel('disk',9);
 ent_smooth = imclose(img_ent, se);
 figure(3);imagesc(ent_smooth);colormap(gray)
 
-% % % this one uses gmm model *************************
-% num_clusts = 2;
-% % tic();
-% skip_size = 30;
-% ent_vector = ent_smooth(:);
-% options = statset( 'MaxIter', 200 );
-% gmm = fitgmdist(ent_vector(1:skip_size:end), num_clusts, 'replicates',3, 'Options', options);
-% idx = reshape(cluster(gmm, ent_smooth(:)), size(ent_smooth));
-% % toc();
-%
-% % Order the clustering so that the indices are from min to max cluster mean
-% [~,sorted_idx] = sort(gmm.mu);
-% temp = zeros(num_clusts,1);
-% for j = 1:num_clusts
-%     temp(j) = find( sorted_idx == j );
-% end
-% sorted_idx = temp; clear temp
-% % some weird bug is happening here but I think the above fixed it
-% new_idx = sorted_idx(idx); %**********************
+% % this one uses gmm model *************************
+num_clusts = 2;
+% tic();
+skip_size = 30;
+ent_vector = ent_smooth(:);
+options = statset( 'MaxIter', 200 );
+gmm = fitgmdist(ent_vector(1:skip_size:end), num_clusts, 'replicates',3, 'Options', options);
+idx = reshape(cluster(gmm, ent_smooth(:)), size(ent_smooth));
+% toc();
 
-% this one uses otzu thresholding ******************************
-new_idx = imquantize( img_ent, multithresh( img_ent, 2 ) );
-figure(4);imagesc(new_idx)
+% Order the clustering so that the indices are from min to max cluster mean
+[~,sorted_idx] = sort(gmm.mu);
+temp = zeros(num_clusts,1);
+for j = 1:num_clusts
+    temp(j) = find( sorted_idx == j );
+end
+sorted_idx = temp; clear temp
+% some weird bug is happening here but I think the above fixed it
+new_idx = sorted_idx(idx); %**********************
+
+% % this one uses otzu thresholding ******************************
+% new_idx = imquantize( img_ent, multithresh( img_ent, 2 ) );
+% figure(4);imagesc(new_idx)
 
 % eliminate all objects below minimum size threshold, considering connected
 % pixels of class ( 2 || 3 ) as objects
@@ -127,6 +127,7 @@ ignore_list = [13, 16, 22, 32, 37, 38, 42, 43, 45, 47, 52, 58, 70, 72,...
 
 [ ground_truth_img, cell_cnts, cell_pix_cnts] =...
     bw_stack_from_roi_cell(ROI_cell, [600 600], ignore_list );
+% save('img_bw_stack.mat', 'img_bw_stack')
 
 summary_stats = evaluate_seg_results( img_bw_stack, ground_truth_img, ROI_cell );
 
