@@ -12,215 +12,216 @@ classdef classSegmentationManager
     methods
         function this = classSegmentationManager
         end
-        function [imgSegBW] = imgSegmentSobel(this, img, scale_factor)
-            % this function was a first attempt at segmentation. It performs
-            % about as well as could be expected. Noise objects are filtered
-            % out by creating an area threshold for a relatively accurate
-            % segmentation. However, touching cells are not specifically
-            % considered and so are usually considered as a single cell.
-            % Further segmentation is required, as is a further noise reduction
-            % algorithm in order to observe the true cell border instead of the
-            % 'goo' surrounding the cell
+        
+        % beginning here attempting to put together functions for
+        % entropy-based segmentation
+        
+        function labeled_img = cluster_img_entropy(this, img, gmm, wind, sizeThresh)
             
+            img_ent = entropyfilt( img, [wind wind] );
+            se = strel('disk',9);
+            ent_smooth = imclose(img_ent, se);
             
-            % try MATLAB built-in edge detection
-            [~, threshC] = edge(img,'sobel');
-%             scld = .7;
-            bwC = edge(img, 'sobel', threshC * scale_factor);
+            idx = reshape(cluster(gmm, ent_smooth(:)), size(ent_smooth));
+            % toc();
             
-            % linear structure elements used for dilation
-            se90 = strel('line', 3, 90);
-            se0 = strel('line', 3, 0);
-            
-            % dilate black and white gradient image and fill holes
-            bwC_D = imdilate(bwC, [se90 se0]);
-            bwC_F = imfill(bwC_D, 'holes');
-            
-            % diamond shape used for erosion to compensate for original dilation
-            seD = strel('diamond',1);
-            
-            % erode to compensate for dilation
-            bwC_F = imerode(bwC_F,seD);
-            bwC_F = imerode(bwC_F,seD);
-            
-            % extract perimeter
-            edge_C = bwperim(bwC_F);
-            
-            % overlays edge map onto image
-            temp = img;
-            edgmp_C = temp;
-            edgmp_C(edge_C) = 65535;
-            
-            % uses label matrix to calculate area of each region
-            cc = bwconncomp(bwC_F);
-            labeled = labelmatrix(cc);
-            
-            pixArea = zeros(max(max(labeled)),1);
-            
-            for i=1:max(max(labeled))
-                pixArea(i) = length(find(labeled==i));
+            % Order the clustering so that the indices are from min to max cluster mean
+            [~,sorted_idx] = sort(gmm.mu);
+            temp = zeros(num_clusts,1);
+            for j = 1:num_clusts
+                temp(j) = find( sorted_idx == j );
             end
+            sorted_idx = temp; clear temp
+            % some weird bug is happening here but I think the above fixed it
+            new_idx = sorted_idx(idx); %**********************
             
-            % fits Gaussian model, chi-2 or extreme value distribution
-            % may be more appropriate but this worked well enough although
-            % mathematically half-assed
-            modl = fitdist(pixArea,'Normal');
-            thresh = modl.mu+2*modl.sigma;
+            bwInterior = (new_idx > 1);
+            cc = bwconncomp(bwInterior);
             
-            % obtains label for objects below area threshold
-            tolow = find(pixArea<thresh);
-            inds_2low = [];
-            for i=1:length(tolow)
-                find(labeled==tolow(i));
-                inds_2low = [inds_2low; find(labeled==tolow(i))];
-            end
+            bSmall = cellfun(@(x)(length(x) < sizeThresh), cc.PixelIdxList);
             
-            % shows original image
-            %             figure, imshow(bwC_F)
-            
-            % eliminates noise objects as defined above
-            bwC_F(inds_2low) = 0;
-            
-            % shows BW image after noise removal with original image
-            %             figure, imshow(bwC_F);
-            %             figure, imshow(temp);
-            %             figure, imshow(bwC);
-            
-            imgSegBW = bwC_F;
-            
+            new_idx(vertcat(cc.PixelIdxList{bSmall})) = 1;
+            labeled_img = new_idx;
         end
-        function [imgOut, imgOutScld] = lowpassFFT(this, img, uprbound)
-            % this function computes the lowpass filtered image of the image
-            % img with the cutoff frequency determined by uprbound.
-            F = fft2(double(img));
+        function gmm = genereate_gmm_entropy(this, img_stack, block_dims, wind, num_clusts)
+            img_ent = zeros( size( img_stack ) );
+            for i = 1:imgCount
+                im = img_stack(:,:,i);
+                img_ent(:,:,i) = entropyfilt(im, ones(wind,wind));
+            end
             
-            M = size(img,2);
-            N = size(img,1);
+            img_ent = img_stack_to_img_2D( img_ent, block_dims );
             
-            deltax = 1;
-            deltay = 1; % for now these, representing the sampling rate in
-            % x and y, will be set to 1 pixel, rather than
-            % their metric values
+            se = strel('disk',9);
+            ent_smooth = imclose(img_ent, se);
             
-            % grid goes from 0 to .5 and then from -.5 back to 0 in steps
-            % size 1/M, provided that deltax is set to 1 pixel. Otherwise
-            % values are scaled by 1/sample rate
-            kx1 = mod( 1/2 + (0:(M-1))/M , 1 ) -1/2;
-            kx = kx1*(2*pi/deltax);
-            ky1 = mod( 1/2 + (0:(N-1))/N , 1 ) -1/2;
-            ky = ky1*(2*pi/deltay);
+            skip_size = 30;
+            ent_vector = ent_smooth(:);
+            options = statset( 'MaxIter', 200 );
+            gmm = fitgmdist(ent_vector(1:skip_size:end), num_clusts, 'replicates',3, 'Options', options);
+        end
+        
+        function [summary_stats, missed_pics_idx] =...
+                evaluate_seg_results( results_img_stack,...
+                ground_truth_stack,...
+                ROI_cell )
+            % results_img should be the binary labeled resulting image from algorithm,
+            % ground_truth should be the ground truth binary label image, and ROI_cell
+            % should be a cell variable with one entry for each image consisting of the
+            % ROIs for that image, ignore_list is a vector of images to ignore in
+            % evaluating the results. missed_pics_idx returns a vector containing the
+            % indices of all images where an ROI was missed
             
-            [KX, KY] = meshgrid(kx, ky);
+            summary_stats = struct([]);
+            missed_pics_idx = [];
             
-            k0 = sqrt(uprbound^2*(deltax^-2+deltay^-2)); % filter set to
-            % filter out frequency values above this magnitude
+            dims = [ size( results_img_stack, 1 ), size( results_img_stack, 2 ) ];
             
-            T1 = double(KX.*KX+KY.*KY < k0^2);
-            T2 = 1-T1;
+            for j = 1:size( results_img_stack, 3 )
+                
+                temp_binary = results_img_stack(:,:,j);
+                temp_ground_truth = ground_truth_stack(:,:,j);
+                temp_roi = ROI_cell{j};
+                temp_detected_cells = 0;
+                temp_missed_cells = 0;
+                
+                cnted_flag = 0;
+                for k = 1:length( temp_roi )
+                    cell_mask = temp_roi(k).Mask;
+                    if( sum( temp_binary( cell_mask == 1) ) > 0 )
+                        temp_detected_cells = temp_detected_cells + 1;
+                    else
+                        temp_missed_cells = temp_missed_cells + 1;
+                        if( cnted_flag == 0 )
+                            missed_pics_idx = [missed_pics_idx; j];
+                            cnted_flag = 1;
+                        end
+                    end
+                end
+                
+                summary_stats(j).detected_cells = temp_detected_cells;
+                summary_stats(j).missed_cells = temp_missed_cells;
+                summary_stats(j).accuracy = sum( sum( temp_binary == temp_ground_truth ) ) / (dims(1)*dims(2) );
+                pix_locs = find( temp_ground_truth == 1 );
+                summary_stats(j).detection_rate = sum( temp_binary( pix_locs ) == 1 )/length(pix_locs);
+                empty_locs = find( temp_ground_truth == 0 );
+                summary_stats(j).false_positive_rate = sum( temp_binary( empty_locs ) == 1 )/length(empty_locs);
+            end
             
-            H = fspecial('gaussian', 100, 20);
-            T1 = imfilter(T1, H, 'replicate');
-            
-            imgOut = abs(ifft2(T1.*fft2(img)));
-            
-            imgOutScld = imgOut-min(min(imgOut));
-            imgOutScld = imgOutScld/max(max(imgOutScld));
             
         end
         
-        function [imgOut, imgOutScld] = highpassFFT(this, img, lowrbound)
-            % this function computes the highpass filtered image of the image
-            % img with the cutoff frequency determined by lowrbound.
-            F = fft2(double(img));
+        function [props_struct, area_vec] = get_cc_regionprops( cc )
+            %get_cc_regionprops(cc)
+            %   A wrapper function for collecting properties of a connected
+            %   component structure
             
-            M = size(img,2);
-            N = size(img,1);
+            props_struct = struct( 'area_mean', 'area_std' );
+            area_vec = zeros( length( cc.PixelIdxList ), 1 );
+            pic_idx_cell = cc.PixelIdxList;
             
-            deltax = 1;
-            deltay = 1; % for now these, representing the sampling rate in
-            % x and y, will be set to 1 pixel, rather than
-            % their metric values
+            for i = 1:length( pic_idx_cell )
+                area_vec(i) =  length( pic_idx_cell{i} );
+            end
             
-            % grid goes from 0 to .5 and then from -.5 back to 0 in steps
-            % size 1/M, provided that deltax is set to 1 pixel. Otherwise
-            % values are scaled by 1/sample rate
-            kx1 = mod( 1/2 + (0:(M-1))/M , 1 ) -1/2;
-            kx = kx1*(2*pi/deltax);
-            ky1 = mod( 1/2 + (0:(N-1))/N , 1 ) -1/2;
-            ky = ky1*(2*pi/deltay);
-            
-            [KX, KY] = meshgrid(kx, ky);
-            
-            k0 = sqrt(lowrbound^2*(deltax^-2+deltay^-2)); % filter set to
-            % filter out frequency values above this magnitude
-            
-            T1 = double(KX.*KX+KY.*KY > k0^2);
-%             T2 = 1-T1;
-            
-            H = fspecial('gaussian', 100, 20);
-            T1 = imfilter(T1, H, 'replicate');
-            
-            imgOut = abs(ifft2(T1.*fft2(img)));
-            
-            imgOutScld = imgOut-min(min(imgOut));
-            imgOutScld = imgOutScld/max(max(imgOutScld));
-            
+            props_struct.area_mean = mean( double( area_vec ) );
+            props_struct.area_std = std( double( area_vec ) );
         end
         
-        function [imgOut, imgOutScld] =...
-                bandpassFFT(this, img, lowrbound, uprbound)
-            % this function uses the functions lowpassFFT and highpassFFT in
-            % order to produce a bandpass filter by subtracting the lowpass
-            % and highpass images from the original image
+        function [img_stack, orig_idx] = img_2D_to_img_stack( img, dims )
+            %img_2D_to_img_stack -
+            %   dims should be the size of each individual image that will be planes
+            %   in the resulting stack in rows x cols format, orig_idx gives a matrix
+            %   with one 2D vector for each image in the resulting image stack. This
+            %   vector corresponds to the top left point of the image in the original
+            %   2D matrix in [row col] format
             
-            %          hpIMG = highpassFFT(this, img, lowrbound, deltax, deltay);
-            %          lpIMG = lowpassFFT(this, img, uprbound, deltax, deltay);
+            img2D_dims = size( img );
+            data_type = class( img );
+            if( length( dims ) ~= 2 )
+                error('dims should be a vector of length 2')
+            end
+            if( mod( img2D_dims(1), dims(1)) ~= 0 || mod( img2D_dims(2), dims(2)) )
+                error('img dimensions and desired stack dimensions inconsistent.' )
+            end
+            if( ~isnumeric( img ) && ~islogical( img )  )
+                error('img is limited to numeric or logical array due to programmer laziness.')
+            end
+            numCols = img2D_dims(1)/dims(1);
+            numRows = img2D_dims(2)/dims(2);
+            orig_idx = zeros( numCols*numRows, 2 );
+            img_stack = zeros(dims(1), dims(2), numCols*numRows, data_type);
+            tempIDX = 0;
+            for i=1:numRows
+                for j=1:numCols
+                    tempIDX = tempIDX + 1;
+                    img_stack( :,:, tempIDX ) =...
+                        img( dims(1)*(i-1)+1:dims(1)*i, dims(2)*(j-1)+1:dims(2)*j );
+                    orig_idx( tempIDX, : ) = [dims(1) dims(2)];
+                end
+            end
+        end
+        
+        function [ img_2D ] = img_stack_to_img_2D( img_stack, dims )
+            %UNTITLED Summary of this function goes here
+            %   Detailed explanation goes here
+            % dims should be a 2D vector in the form of [rows cols] where rows
+            % represents the number of images from the stack per row and cols defined
+            % similarly. rows*cols should equal the number of images in the stack
             
-            %          imgOut = img - lpIMG - hpIMG;
-            %          imgOutScld = imgOut - min(min(imgOut));
-            %          imgOutScld = imgOutScld./max(max(imgOutScld));
+            numRows = dims(1);
+            numCols = dims(2);
+            data_type = class( img_stack );
             
-            deltax = 1;
-            deltay = 1;
+            if( length( dims ) ~= 2 )
+                error('dims should be a vector of length 2')
+            end
             
-            M = size(img,2);
-            N = size(img,1);
+            if( dims(1)*dims(2) ~= size( img_stack, 3) )
+                error('img dimensions and desired stack dimensions inconsistent.' )
+            end
             
-            kx1 = mod( 1/2 + (0:(M-1))/M , 1 ) -1/2;
-            kx = kx1*(2*pi/deltax);
-            ky1 = mod( 1/2 + (0:(N-1))/N , 1 ) -1/2;
-            ky = ky1*(2*pi/deltay);
+            if( ~isnumeric( img_stack ) && ~islogical( img_stack ) )
+                error('img is limited to numeric array due to programmer laziness.')
+            end
             
-            [KX, KY] = meshgrid(kx, ky);
+            img_stack_dims = size( img_stack );
+            num_imgs = img_stack_dims(3);
+            img_stack_dims = img_stack_dims(1:2);
             
-%             k0 = sqrt(uprbound^2*(deltax^-2+deltay^-2)); % filter set to
-%             % filter out frequency values above this magnitude
-            k0 = uprbound;
+            img2D_dims = [numRows*img_stack_dims(1) numCols*img_stack_dims(2)];
             
-            bnd1 = double(KX.*KX+KY.*KY < k0^2);
+            img_2D = zeros( img2D_dims(1), img2D_dims(2), data_type );
             
-            kx1 = mod( 1/2 + (0:(M-1))/M , 1 ) - 1/2;
-            kx = kx1*(2*pi/deltax);
-            ky1 = mod( 1/2 + (0:(N-1))/N , 1 ) - 1/2;
-            ky = ky1*(2*pi/deltay);
+            tempIDX = 0;
+            for i=1:numRows
+                for j=1:numCols
+                    tempIDX = tempIDX + 1;
+                    img_2D( img_stack_dims(1)*(i-1)+1:img_stack_dims(1)*i,...
+                        img_stack_dims(2)*(j-1)+1:img_stack_dims(2)*j ) =...
+                        img_stack( :,:, tempIDX );
+                end
+            end
+        end
+        
+        function sub_img = extract_subimage( img, rows, cols )
+            % rows and cols should each be a vector of dimension two specifying the
+            % column span and the row span of the desired subimage
             
-            [KX, KY] = meshgrid(kx, ky);
+            dims = size(img);
             
-%             k0 = sqrt(lowrbound^2*(deltax^-2+deltay^-2)); % filter set to
-%             % filter out frequency values above this magnitude
-            k0 = lowrbound;
+            if( max(size(rows)) ~= 2 || min(size(rows)) ~= 1 ||...
+                    max(size(cols)) ~= 2 || min(size(cols)) ~= 1  ||...
+                    length(size(rows)) ~= 2 || length(size(cols )) ~= 2 )
+                error('rows and cols must be vectors of dimension 2')
+            end
+            if( min(rows) < 0 || min(cols) < 0 ||...
+                    max(rows) > dims(1) || max(cols) > dims(2) )
+                error('dimensions out of image bounds')
+            end
             
-            bnd2 = double(KX.*KX+KY.*KY > k0^2);
+            sub_img = img( min(rows):max(rows), min(cols):max(cols) );
             
-            T1 = and( bnd1, bnd2 );
-            
-            H = fspecial('gaussian', 100, 20);
-            T1 = imfilter(T1, H, 'replicate');
-            
-            imgOut = abs(ifft2(T1.*fft2(img)));
-            
-            imgOutScld = imgOut-min(min(imgOut));
-            imgOutScld = imgOutScld/max(max(imgOutScld));
         end
         
     end
