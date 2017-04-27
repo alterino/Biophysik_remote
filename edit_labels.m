@@ -22,7 +22,7 @@ function varargout = edit_labels(varargin)
 
 % Edit the above text to modify the response to help edit_labels
 
-% Last Modified by GUIDE v2.5 31-Mar-2017 13:27:54
+% Last Modified by GUIDE v2.5 27-Apr-2017 15:26:50
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -98,7 +98,7 @@ end
 
 if( isempty( inputs.ImageStack ) )
     % lab path
-%     [filename, dirpath] = uigetfile( 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\*.tif', 'Select .tif image' );
+    %     [filename, dirpath] = uigetfile( 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\*.tif', 'Select .tif image' );
     % home path
     [filename, dirpath] = uigetfile( 'D:\OS_Biophysik\Microscopy\*.tif', 'Select .tif image' );
     if( strcmp( filename(end-2:end), 'tif' ) ||...
@@ -130,7 +130,9 @@ end
 handles.ImageStack = img_stack;
 handles.ROI = ROI_cell;
 handles.picIDX = 1;
-set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
+set( handles.direct_text, 'String', ...
+    sprintf( 'Choose action to take, idx=%i, ROI count =',...
+    handles.picIDX, length( handles.ROI(handles.picIDX ) ) ) );
 
 img_stack = handles.ImageStack;
 ROI_cell = handles.ROI;
@@ -156,6 +158,11 @@ handles.h_seg = findobj( handles.segged_img, 'Type', 'image' );
 %     figure( handles.labeled_img );
 imshow( labels_1, [], 'Parent', handles.labeled_img );
 handles.h_lab = findobj( handles.labeled_img, 'Type', 'image' );
+
+% variable to hold strings printed on axes
+handles.axes_strs = [];
+
+handles = update_meta_data(hObject, eventdata, handles);
 
 % Update handles structure
 guidata(hObject, handles);
@@ -194,7 +201,7 @@ while( roi_bool == 1 )
     set( handles.direct_text, 'String', 'Draw border around object of interest' );
     [ROI(roi_cnt), hRoi] = ROI_draw(roiType,handles.segged_img);
     delete(hRoi);
-    update_figures( hObject, eventdata, handles );
+    handles = update_figures( hObject, eventdata, handles );
     ok = 0;
     label_opts = { 'alive cell', 'dead cell', 'other' };
     while( ~ok )
@@ -203,7 +210,7 @@ while( roi_bool == 1 )
         ROI(roi_cnt).Label = label_idx;
     end
     handles.ROI{handles.picIDX} = ROI;
-    update_figures( hObject, eventdata, handles );
+    handles = update_figures( hObject, eventdata, handles );
     roi_bool = generate_binary_decision_dialog('',{'Select another ROI?'});
 end
 
@@ -241,25 +248,63 @@ while( ~del_flag )
             old_label = ROI(i).Label;
             ROI(i).Label = 4;
             handles.ROI{handles.picIDX} = ROI;
-            update_figures(hObject, eventdata, handles);
+            handles = update_figures(hObject, eventdata, handles);
             del_bool = generate_binary_decision_dialog('',{'Delete selected ROI?'});
             if( del_bool )
                 ROI(i) = [];
                 handles.ROI{handles.picIDX} = ROI;
-                update_figures(hObject, eventdata, handles);
+                handles = update_figures(hObject, eventdata, handles);
                 del_flag = 1;
                 break
             else
                 ROI(i).Label = old_label;
                 handles.ROI{handles.picIDX} = ROI;
-                update_figures(hObject, eventdata, handles);
+                handles = update_figures(hObject, eventdata, handles);
                 del_flag = ~generate_binary_decision_dialog('',{'Re-select ROI?'});
             end
         end
     end
     
     if( ~found_bool )
-        warning('no ROI found at this location')
+        ok = 0;
+        del_bool = 0;
+        while( ~ok )
+            sel_bool = generate_binary_decision_dialog('',{'Select ROI index?'});
+            if( sel_bool)
+                sel_opts = cell( length(ROI), 1);
+                for i = 1:length(ROI)
+                    sel_opts{i} = num2str(i);
+                end
+                
+                [sel_idx, ok] = listdlg( 'PromptString', 'Enter cell idx: ',...
+                    'SelectionMode', 'single', 'ListString', sel_opts );
+                %                 ROI(i).Label = label_idx;
+                if( ~ok )
+                    continue
+                end
+                old_label = ROI(sel_idx).Label;
+                ROI(sel_idx).Label = 4;
+                handles.ROI{handles.picIDX} = ROI;
+                handles = update_figures(hObject, eventdata, handles);
+                del_bool = generate_binary_decision_dialog('',{sprintf('Delete %i-th ROI?', sel_idx)} );
+                if( del_bool )
+                    ROI(sel_idx) = [];
+                    handles.ROI{handles.picIDX} = ROI;
+                    handles = update_figures(hObject, eventdata, handles);
+                    del_flag = 1;
+                    break
+                else
+                    ROI(sel_idx).Label = old_label;
+                    handles.ROI{handles.picIDX} = ROI;
+                    handles = update_figures(hObject, eventdata, handles);
+                    ok = ~generate_binary_decision_dialog('',{'Re-select ROI?'});
+                end
+                
+            end
+        end
+        if( ~del_bool )
+            warning('no ROI deleted')
+        end
     end
     
 end
@@ -306,7 +351,7 @@ if( found_count == 2 )
     old_label = ROI(hole_idx).Label;
     ROI(hole_idx).Label = 4;
     handles.ROI{handles.picIDX} = ROI;
-    update_figures( hObject, eventdata, handles );
+    handles = update_figures( hObject, eventdata, handles );
     
     rem_bool = generate_binary_decision_dialog('',{'Remove selected ROI?'});
     
@@ -324,11 +369,11 @@ if( found_count == 2 )
         ROI(cell_idx).RectHull = [ min( col ), max( col ), min(row), max(row)];
         ROI(hole_idx) = [];
         handles.ROI{handles.picIDX} = ROI;
-        update_figures( hObject, eventdata, handles );
+        handles = update_figures( hObject, eventdata, handles );
     else
         ROI(hole_idx).Label = old_label;
         handles.ROI{handles.picIDX} = ROI;
-        update_figures( hObject, eventdata, handles );
+        handles = update_figures( hObject, eventdata, handles );
         fprintf('change aborted\n')
     end
 else
@@ -374,7 +419,7 @@ for i = 1:length( ROI )
         found_bool = 1;
         ROI(i).Label = 4;
         handles.ROI{handles.picIDX} = ROI;
-        update_figures(hObject, eventdata, handles);
+        handles = update_figures(hObject, eventdata, handles);
         ok = 0;
         label_opts = { 'alive cell', 'dead cell', 'other' };
         while( ~ok )
@@ -390,7 +435,7 @@ if( ~found_bool )
 end
 
 handles.ROI{handles.picIDX} = ROI;
-update_figures( hObject, eventdata, handles );
+handles = update_figures( hObject, eventdata, handles );
 set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
 
 % Update handles structure
@@ -408,9 +453,12 @@ if( handles.picIDX > size( handles.ImageStack, 3 ) )
     handles.picIDX = 1;
 end
 
-set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
+set( handles.direct_text, 'String', ...
+    sprintf( 'Choose action to take, idx=%i, ROI count =',...
+    handles.picIDX, length( handles.ROI(handles.picIDX ) ) ) );
 
-update_figures(hObject, eventdata, handles);
+
+handles = update_figures(hObject, eventdata, handles);
 % Update handles structure
 guidata(hObject, handles);
 
@@ -427,9 +475,11 @@ if( handles.picIDX < 1 )
     handles.picIDX = size( handles.ImageStack, 3 );
 end
 
-set( handles.direct_text, 'String', sprintf( 'Choose action to take, idx=%i', handles.picIDX) );
+set( handles.direct_text, 'String', ...
+    sprintf( 'Choose action to take, idx=%i, ROI count =',...
+    handles.picIDX, length( handles.ROI(handles.picIDX ) ) ) );
 
-update_figures(hObject, eventdata, handles);
+handles = update_figures(hObject, eventdata, handles);
 % Update handles structure
 guidata(hObject, handles);
 
@@ -452,9 +502,19 @@ image_stack = handles.ImageStack;
 
 save( filepath, 'ROI_cell' );
 
+% --- Executes on button press in show_meta_data.
+function show_meta_data_Callback(hObject, eventdata, handles)
+% hObject    handle to show_meta_data (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
 
+% Hint: get(hObject,'Value') returns toggle state of show_meta_data
 
-function update_figures(hObject, eventdata, handles)
+handles = update_meta_data(hObject, eventdata, handles);
+
+guidata(hObject, handles)
+
+function handles = update_figures(hObject, eventdata, handles)
 % updates figures in GUI
 
 img_stack = handles.ImageStack;
@@ -479,5 +539,69 @@ labels_1 = label2rgb( bw, labels_map, [.5 .5 .5]);
 set( handles.h_seg, 'CData' , img )
 set( handles.h_lab, 'CData', labels_1 );
 
-guidata(hObject, handles);
+handles = update_meta_data(hObject, eventdata, handles);
 
+% guidata(hObject, handles);
+
+
+
+function handles = update_meta_data(hObject, eventdata, handles)
+
+check_bool = get(handles.show_meta_data, 'Value');
+curr_idx = handles.picIDX;
+curr_ROI = handles.ROI{ curr_idx };
+
+if(check_bool)
+    handles.ui_data_table.Visible = 'on';
+    if( ~isempty( handles.axes_strs ) )
+        for i = 1:length( handles.axes_strs )
+            delete( handles.axes_strs{i} )
+        end
+    end
+    handles.axes_str = [];
+    handles.axes_strs = cell( length(curr_ROI), 1);
+    temp_cell = cell(length(curr_ROI), 3);
+    for i = 1:length( curr_ROI )
+        if( ~isempty( curr_ROI(i).RectHull ) )
+            rect_hull = curr_ROI(i).RectHull;
+            x_cent = mean( rect_hull(1:2) );
+            y_cent = mean( rect_hull(3:4) );
+            
+            handles.axes_strs{i} = text( x_cent, y_cent, num2str(i),...
+                'Parent', handles.labeled_img, 'Color', [1 1 1],...
+                'FontSize', 14, 'FontWeight', 'bold' );
+        end
+        
+        % update data table data
+        temp_cell{i,1} = i;
+        temp_cell{i,2} = curr_ROI(i).Area;
+        temp_cell{i,3} = curr_ROI(i).Label;
+    end
+    handles.ui_data_table.Data = [ {'idx'}, {'Area'}, {'Label'};
+        temp_cell];
+    %     handles.axes_str = temp;
+    %     handles = update_meta_data(hObject, eventdata, handles);
+else
+    handles.ui_data_table.Visible = 'off';
+    for i = 1:length( handles.axes_strs )
+        delete( handles.axes_strs{i} )
+    end
+    %     update_meta_data(hObject, eventdata, handles);
+    handles.axes_strs = [];
+end
+
+
+
+% guidata(hObject, handles);
+
+
+% --- Executes on button press in debug_button.
+function debug_button_Callback(hObject, eventdata, handles)
+% hObject    handle to debug_button (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% debug placeholder
+if(1), end;
+
+guidata(hObject, handles)
