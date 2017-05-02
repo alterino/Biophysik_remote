@@ -59,7 +59,12 @@ eval_fields = snames(eval_idx);
 for i = 1:length(eval_fields)
     temp_liv = [living_cc_props.(eval_fields{i})];
     temp_dead = [dead_cc_props.(eval_fields{i})];
-    temp_bs = [bs_cc_props.(eval_fields{i})];
+%     temp_bs = [bs_cc_props.(eval_fields{i})];
+    
+    if( mean( temp_liv ) > mean( temp_dead ) )
+        
+    end
+
 
     figure(1)
     subplot(1,3,1), hist( temp_liv );
@@ -67,6 +72,8 @@ for i = 1:length(eval_fields)
     subplot(1,3,3), hist( temp_bs );
     title( eval_fields{i} ); 
 end
+
+
     
                 
 
