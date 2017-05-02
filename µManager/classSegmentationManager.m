@@ -18,7 +18,7 @@ classdef classSegmentationManager
         
         function labeled_img = cluster_img_entropy(this, img, gmm, wind, sizeThresh)
             
-            img_ent = entropyfilt( img, [wind wind] );
+            img_ent = entropyfilt( img, ones(wind,wind) );
             se = strel('disk',9);
             ent_smooth = imclose(img_ent, se);
             
@@ -45,7 +45,8 @@ classdef classSegmentationManager
         end
         function gmm = genereate_gmm_entropy(this, img_stack, block_dims, wind, num_clusts)
             img_ent = zeros( size( img_stack ) );
-            for i = 1:imgCount
+            
+            for i = 1:size(img_stack, 3)
                 im = img_stack(:,:,i);
                 img_ent(:,:,i) = entropyfilt(im, ones(wind,wind));
             end
