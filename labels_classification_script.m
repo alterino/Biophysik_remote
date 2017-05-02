@@ -125,9 +125,9 @@ labels_map = [0 1 0; 1 0 0; 0 0 0; .8 .8 .8; 0 0 1];
 man_labels_rgb = label2rgb( man_labels, labels_map, [.5 .5 .5] );
 train_labels_rgb = label2rgb( train_labels, labels_map, [.5 .5 .5] );
 
-figure(2), imshow( man_labels_rgb ); title('manually labeled image')
-figure(3), imshow( train_labels_rgb );
-title(sprintf('classifcation on training data, accuracy = %.2f', train_acc))
+% figure(2), imshow( man_labels_rgb ); title('manually labeled image')
+% figure(3), imshow( train_labels_rgb );
+% title(sprintf('classifcation on training data, accuracy = %.2f', train_acc))
 
 if( exist( 'gmm.mat', 'file' ) )
     load('gmm.mat')
@@ -142,7 +142,7 @@ if( ~exist('test_cluster', 'var') )
     test_cluster = cluster_img_entropy(img, [600 600], gmm, 9, 10000);
 end
 test_bw = (test_cluster>2);
-figure(4), imshow(test_bw, [])
+% figure(4), imshow(test_bw, [])
 
 test_cc = bwconncomp(test_bw);
 test_stats = get_cc_regionprops(test_cc);
@@ -157,13 +157,15 @@ end
 test_stats = test_stats(keep_idx);
 test_cc.PixelIdxList = test_cc.PixelIdxList(keep_idx);
 test_cc.NumObjects = length(keep_idx);
+clear keep_idx bnd_box
 
 test_labels = zeros(9000,9000);
-
+live_idx = [];
 for i = 1:length( test_stats )
     if( test_stats(i).MajorAxisLength > opt_thresh )
         test_labels(test_cc.PixelIdxList{i}) = 1;
         test_stats(i).Label = 1;
+        live_idx = [live_idx; i];
     else
         test_labels(test_cc.PixelIdxList{i}) = 2;
         test_stats(i).Label=2;
@@ -171,8 +173,80 @@ for i = 1:length( test_stats )
 end
 
 test_labels_rgb = label2rgb( test_labels, labels_map, [.5 .5 .5] );
+test_live_stats = test_stats(live_idx);
+test_live_cc = test_cc;
+test_live_cc.PixelIdxList = test_live_cc.PixelIdxList(live_idx);
+test_live_cc.NumObjects = length(live_idx);
 figure(5), imshow( test_labels_rgb, [] );
 title('test classification on segmented data');
+clear live_idx *rgb bs* dead* gmm
+dims = [9000 9000];
+
+img_flour1 = imread('D:\OS_Biophysik\Microscopy\Fluor_TIRF_488_160308_2041.tif');
+img_flour2 = imread('D:\OS_Biophysik\Microscopy\Fluor_TIRF_640_160308_2037.tif');
+img_DIC = img;
+clear img
+
+dir_str = 'D:\OS_Biophysik\Microscopy\results\';
+
+stats = struct('CellMean488', [], 'BackgroundMean488', [],...
+               'CellMean640', [], 'BackgroundMean640', []);
+
+for i = 1:length( test_live_stats )
+    
+    bb = test_live_stats(i).BoundingBox;
+    center_pt = round( [bb(1)+bb(3)/2, bb(2)+bb(4)/2] );
+    col_idx = center_pt(1)-300:center_pt(1)+299;
+    row_idx = center_pt(2)-300:center_pt(2)+299;
+    
+    img_bw = zeros(9000,9000);
+    img_bw(test_live_cc.PixelIdxList{i}) = 1;
+    
+    if(max(row_idx)> dims(1))
+        shift = -max(row_idx)+dims(1);
+        row_idx = row_idx+shift;
+    elseif(min(row_idx)<1)
+        shift = -min(row_idx)+1;
+        row_idx = row_idx + shift;
+    end
+    if(max(col_idx)> dims(2))
+        shift = -max(col_idx)+dims(2);
+        col_idx = col_idx+shift;
+    elseif(min(col_idx)<1)
+        shift = -min(col_idx)+1;
+        col_idx = col_idx + shift;
+    end
+    
+    img_bw = img_bw(row_idx, col_idx);
+    perim_bw = bwperim(img_bw);
+    
+    temp_DIC = img_DIC( row_idx, col_idx );
+%     temp_DIC(perim_bw) = max(max(temp_DIC));
+    temp_flour1 = im2double( img_flour1( row_idx, col_idx ) );
+    temp_flour2 = im2double( img_flour2( row_idx, col_idx ) );
+    
+    temp_flour1 = (temp_flour1-min(min(temp_flour1)))/(max(max(temp_flour1))-min(min(temp_flour1)));
+    temp_flour2 = (temp_flour2-min(min(temp_flour2)))/(max(max(temp_flour2))-min(min(temp_flour2)));
+    
+    dic_str = strcat( dir_str, sprintf('img%03i_DIC.tiff', i) );
+    flour_str1 = strcat( dir_str, sprintf('img%03i_488.tiff', i) );
+    flour_str2 = strcat( dir_str, sprintf('img%03i_640.tiff', i) );
+    imwrite( temp_DIC, dic_str ); imwrite( temp_flour1, flour_str1 );
+    imwrite( temp_flour2, flour_str2 );
+    
+    figure(2)
+    subplot(1,3,1), imshow( temp_DIC, [] );
+    subplot(1,3,2), imshow( temp_flour1, [] );
+    subplot(1,3,3), imshow( temp_flour2, [] );
+%     centroid = test_live_stats(i).Centroid;
+
+    stats(i).CellMean488 = mean( temp_flour1(img_bw==1) );
+    stats(i).BackgroundMean488 = mean( temp_flour1(img_bw==0) );
+    stats(i).CellMean640 = mean( temp_flour2(img_bw==1) );
+    stats(i).BackgroundMean640 = mean( temp_flour2(img_bw==0) );
+end
+
+clear *idx shift temp* *str bb dims i
 
 
 
