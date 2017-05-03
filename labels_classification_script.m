@@ -228,11 +228,11 @@ for i = 1:length( test_live_stats )
     temp_flour1 = (temp_flour1-min(min(temp_flour1)))/(max(max(temp_flour1))-min(min(temp_flour1)));
     temp_flour2 = (temp_flour2-min(min(temp_flour2)))/(max(max(temp_flour2))-min(min(temp_flour2)));
     
-    dic_str = strcat( dir_str, sprintf('img%03i_DIC.tiff', i) );
-    flour_str1 = strcat( dir_str, sprintf('img%03i_488.tiff', i) );
-    flour_str2 = strcat( dir_str, sprintf('img%03i_640.tiff', i) );
-    imwrite( temp_DIC, dic_str ); imwrite( temp_flour1, flour_str1 );
-    imwrite( temp_flour2, flour_str2 );
+%     dic_str = strcat( dir_str, sprintf('img%03i_DIC.tiff', i) );
+%     flour_str1 = strcat( dir_str, sprintf('img%03i_488.tiff', i) );
+%     flour_str2 = strcat( dir_str, sprintf('img%03i_640.tiff', i) );
+%     imwrite( temp_DIC, dic_str ); imwrite( temp_flour1, flour_str1 );
+%     imwrite( temp_flour2, flour_str2 );
     
     figure(2)
     subplot(1,3,1), imshow( temp_DIC, [] );
