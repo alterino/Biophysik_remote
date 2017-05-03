@@ -14,36 +14,38 @@ timeMat = zeros(numel(filenames));
 for i=1:numel(filenames)
     
     img = im2double(imread(strcat( dir_str, filenames{i} )));
-    img = img-min(min(img));
-    img = img/max(max(img));
+%     img = img-min(min(img));
+%     img = img/max(max(img));
     dims = size(img);
     
-    img_resh = reshape(img, [1 dims(1)*dims(2)]);
+%     img_resh = reshape(img, [1 dims(1)*dims(2)]);
     
     % lets try some thresholding
     
     
-    img_doub = im2double(img);   
+%     img_doub = im2double(img);   
     
-    tic
-    threshInt = multithresh(img_doub,2);
+%     tic
+    threshInt = multithresh(img,2);
     
-    img_sg1 = img;
-    img_sg1(img<max(threshInt)) = 0;
-    img_sg2 = img;
-    img_sg2(img < min(threshInt)) = 0;
-    img_sg2(img >= max(threshInt)) = 0;
-    imgbw = im2bw(img_doub,max(threshInt));
+%     img_sg1 = img;
+%     img_sg1(img<max(threshInt)) = 0;
+%     img_sg2 = img;
+%     img_sg2(img < min(threshInt)) = 0;
+%     img_sg2(img >= max(threshInt)) = 1;
+    imgbw = im2bw(img,max(threshInt));
+    figure(1), subplot(1,2,1), imshow(imgbw);
     
     % separate image into thresholded and not thresholded
 
     
-    img_nz = img-img_sg1;
-    img_sg1F = medfilt2(img_sg1, [3 3]);
-    img_sg2F = medfilt2(img_sg2, [3 3]);
+%     img_nz = img-img_sg1;
+%     img_sg1F = medfilt2(img_sg1, [3 3]);
+%     img_sg2F = medfilt2(img_sg2, [3 3]);
     
     
     imgbw = medfilt2(imgbw, [3 3]);
+    figure(1), subplot(1,2,2), imshow(imgbw);
     
     % linear structure elements used for dilation
     se90 = strel('line', 3, 90);
@@ -53,9 +55,13 @@ for i=1:numel(filenames)
     
     imgbw_D = imdilate(imgbw, [se90 se0]);
     imgbw_F = imfill(imgbw_D, 'holes');
+    figure(2), subplot(1,2,1), imshow(imgbw_D);
+    figure(2), subplot(1,2,2), imshow(imgbw_F);
     
     bwC_F = imerode(imgbw_F, seD);
-    bwC_F = imerode(bwC_F, seD);    
+    figure(3), subplot(1,2,1), imshow(bwC_F);
+    bwC_F = imerode(bwC_F, seD); 
+    figure(3), subplot(1,2,2), imshow(bwC_F);
         
     
     cc = bwconncomp(bwC_F);
