@@ -1,10 +1,19 @@
 function labeled_img = cluster_img_entropy(img, stack_dims, gmm, wind, sizeThresh)
+% if stack_dims is [] that means that the image should be assumed to be a
+% single 2D image rather than an array of 2D images composing a larger
+% image
 
-img_stack = img_2D_to_img_stack( img, stack_dims );
-img_ent = entropyfilt( img_stack, ones(wind,wind) );
-img_ent = img_stack_to_img_2D(img_ent, [15 15]);
-se = strel('disk',9);
-ent_smooth = imclose(img_ent, se);
+if( isempty( stack_dims) )
+    img_ent = entropyfilt( img, ones(wind,wind) );
+    se = strel('disk',9);
+    ent_smooth = imclose(img_ent, se);
+else
+    img_stack = img_2D_to_img_stack( img, stack_dims );
+    img_ent = entropyfilt( img_stack, ones(wind,wind) );
+    img_ent = img_stack_to_img_2D(img_ent, [15 15]);
+    se = strel('disk',9);
+    ent_smooth = imclose(img_ent, se);
+end
 num_clusts = length(gmm.mu);
 
 idx = reshape(cluster(gmm, ent_smooth(:)), size(ent_smooth));
