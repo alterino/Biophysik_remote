@@ -34,12 +34,8 @@ classdef classMicroManagerWrapper < handle
         LocationClassifier
         
         JavaRobot
-        MicManPath = 'C:\Program Files\Micro-Manager-1.4';
-        Profile = 'Roboscope2.cfg';
     end %properties
     properties(Access=private)
-        PhysPxSize = 6.5; %[µm] sCMOS Hamamatsu ORCA Flash
-        
         StageMinLimit = 5; %[µm]
         StageMaxLimit = 5000; %[µm]
         PiezoMinLimit = 0;
@@ -48,7 +44,7 @@ classdef classMicroManagerWrapper < handle
         PxSatExpRedFac = 0.5;
         
         XYStageCtr; %(x,y) [µm]
-        XYStageMaxRadius = 1250; %[µm]
+        XYStageMaxRadius = 2000; %[µm]
         
         XYStageMinSpeed = 0.000015; %[mm/s] %taken from Maerzhaeuser Manual
         XYStageMaxSpeed = 10; %[mm/s] %taken from Maerzhaeuser Manual; 100 mm/s possible, but at own risk
@@ -68,15 +64,10 @@ classdef classMicroManagerWrapper < handle
         AutoFocusOffsetMinLimit = 0;
         AutoFocusOffsetMaxLimit = 2000;
     end %properties
-    properties(Access=private,Transient)
-        FatalError = false; %checked before each critical step and set in case of mis-behaviour
-    end %properties
     
     methods
         %% constructor
         function this = classMicroManagerWrapper
-            import_java(this)
-            
             import java.awt.Robot;
             this.JavaRobot = Robot;
             this.JavaRobot.delay(0)
@@ -84,47 +75,52 @@ classdef classMicroManagerWrapper < handle
             this.JavaRobot.setAutoWaitForIdle(1)
         end %fun
         function import_java(this)
-            if not(exist(this.MicManPath,'dir') == 7)
-                this.MicManPath = uigetdir;
+            micManPath = 'C:\Program Files\Micro-Manager-1.4';
+            if not(exist(micManPath,'dir') == 7)
+                micManPath = uigetdir;
             end %if
-            classMicroManagerWrapper.MMsetup_javaclasspath(this.MicManPath)
+            classMicroManagerWrapper.MMsetup_javaclasspath(micManPath)
         end %fun
-        
-        function initialize_micro_manager(this,mode)
-            fprintf('\nPLEASE WAIT...\n')
+        function load_micro_manager_gui(this)
+            import org.micromanager.*;
+            %             import mmcorej.*;
+            pause(1)
             
-            if nargin == 1
-                mode = '';
-            end %if
+            this.GuiAPI = MMStudioMainFrame(0);
+            this.GuiAPI.show;
+        end %fun
+        function setup_profile(this,profile)
+            get_coreAPI(this)
+            get_AcqAPI(this)
             
-            switch mode
-                case 'GUI'
-                    import org.micromanager.*;
-                    pause(1)
-                    
-                    this.GuiAPI = MMStudioMainFrame(0);
-                    this.GuiAPI.show;
-                otherwise
-                    get_coreAPI(this)
-                    profile = fullfile(this.MicManPath,this.Profile);
-                    this.CoreAPI.loadSystemConfiguration(profile);
-                    pause(1)
-                    fprintf('\n Hardware Profile loaded: %s\n',profile)
-                    
-                    get_all_hardware(this)
-                    
-                    %some general settings to start with
-                    set_light_path_state(this,1) %set to camera (in case)
-                    set_pixel_binning(this,2)
-                    set_exposure_time(this,30) %[ms]
-                    set_auto_focus_search_range(this,500)
-                    %                     set_piezo_z_position_micron(this,10)
-                    
-                    this.XYStageCtr = get_xy_pos_micron(this);
-                    set_xy_speed(this,[1 1])
-                    set_xy_acceleration(this,[0.2 0.2])
-                    
-                    fprintf('\nREADY...\n')
+            get_core(this)
+            get_olympus_hub(this)
+            get_objective_stage(this)
+            get_xy_stage(this)
+            get_camera(this)
+            get_transmission_lamp(this)
+            get_transmission_lamp_shutter(this)
+            get_objective_revolver(this)
+            get_light_path(this)
+            get_filter_revolver(this)
+            get_auto_focus(this)
+            get_piezo(this)
+            
+            set_auto_focus_search_range(this,500)
+            set_transmission_lamp_auto_shutter(this,0)
+            
+            get_TIRF(this)
+            get_laser(this)
+            get_cleanup_filter(this)
+            
+            this.XYStageCtr = get_xy_pos_micron(this);
+            this.XYStageMaxRadius = 2000; %[µm]
+            
+            switch profile
+                case '60x'
+                    set_auto_focus_objective(this,60)
+                case '100x'
+                    set_auto_focus_objective(this,100)
             end %switch
         end %fun
         
@@ -132,8 +128,6 @@ classdef classMicroManagerWrapper < handle
         function get_coreAPI(this)
             if isempty(this.GuiAPI)
                 import mmcorej.*;
-                pause(1)
-                
                 this.CoreAPI = CMMCore;
             else
                 this.CoreAPI = this.GuiAPI.getCore;
@@ -141,7 +135,7 @@ classdef classMicroManagerWrapper < handle
         end %fun
         function get_AcqAPI(this)
             if isempty(this.GuiAPI)
-                this.AcqAPI = [];
+                import mmcorej.*;
             else
                 this.AcqAPI = this.GuiAPI.getAcquisitionEngine;
             end %if
@@ -155,27 +149,7 @@ classdef classMicroManagerWrapper < handle
             propertyList = toArray(this.CoreAPI.getDevicePropertyNames(device));
         end %fun
         
-        %% hardware pointer
-        function get_all_hardware(this)
-            get_core(this)
-            get_olympus_hub(this)
-            get_objective_stage(this)
-            get_xy_stage(this)
-            get_camera(this)
-            get_transmission_lamp(this)
-            get_transmission_lamp_shutter(this)
-            get_objective_revolver(this)
-            get_light_path(this)
-            get_filter_revolver(this)
-            get_auto_focus(this)
-            %             try
-            get_piezo(this)
-            %             catch msg
-            %                 fprintf('\n%s\n',msg)
-            %             fprintf('\nPiezo Stage not detected.\n')
-            %             end %try
-        end %fun
-        
+        %%
         function get_core(this)
             this.Core = java.lang.String('Core');
         end %fun
@@ -213,446 +187,64 @@ classdef classMicroManagerWrapper < handle
             this.Piezo = java.lang.String('NanoScanZ');
         end %fun
         
-        %% cellsense interfaces
-        function get_cellsense_interface(this)
-            %interfaces to cellsense (temp. hack)
-            get_TIRF(this)
-            get_laser(this)
-            get_cleanup_filter(this)
-        end %fun
         function get_TIRF(this)
             this.TIRF = classTirfAdjustmentWrapper(this);
-            
-            %make sure internal state matches
-            %             set_fiber_state(this.TIRF,405,...
-            %                 get_fiber_state(this.TIRF,405));
-            %             set_fiber_position(this.TIRF,405,...
-            %                 get_fiber_position(this.TIRF,405))
-            %             pause(0.05)
-            %
-            %             set_fiber_state(this.TIRF,488,...
-            %                 get_fiber_state(this.TIRF,488));
-            %             set_fiber_position(this.TIRF,488,...
-            %                 get_fiber_position(this.TIRF,488))
-            %             pause(0.05)
-            %
-            %             set_fiber_state(this.TIRF,561,...
-            %                 get_fiber_state(this.TIRF,561));
-            %             set_fiber_position(this.TIRF,561,...
-            %                 get_fiber_position(this.TIRF,561))
-            %             pause(0.05)
-            %
-            %             set_fiber_state(this.TIRF,640,...
-            %                 get_fiber_state(this.TIRF,640));
-            %             set_fiber_position(this.TIRF,640,...
-            %                 get_fiber_position(this.TIRF,640))
-            %             pause(0.05)
+            initialize(this.TIRF);
         end %fun
         function get_laser(this)
             this.Laser = classLaserControlWrapper(this);
-            
-            %make sure internal state matches
-            set_laser_power(this.Laser,405,...
-                get_laser_power(this.Laser,405))
-            pause(0.05)
-            
-            set_laser_power(this.Laser,488,...
-                get_laser_power(this.Laser,488))
-            pause(0.05)
-            
-            set_laser_power(this.Laser,561,...
-                get_laser_power(this.Laser,561))
-            pause(0.05)
-            
-            set_laser_power(this.Laser,640,...
-                get_laser_power(this.Laser,640))
-            pause(0.05)
+            initialize(this.Laser);
         end %fun
         function get_cleanup_filter(this)
             this.CleanupFilter = classCleanupFilterWrapper(this);
-            
-            %make sure internal state matches
-            set_cleanup_filter_set(this.CleanupFilter,...
-                get_cleanup_filter_set(this.CleanupFilter))
-            pause(0.05)
+            initialize(this.CleanupFilter);
         end %fun
         
-        %% hardware configuration
-        function binning = get_pixel_binning(this)
-            switch char(this.CoreAPI.getProperty(this.Camera,'Binning'))
-                case '1x1'
-                    binning = 1;
-                case '2x2'
-                    binning = 2;
-                case '4x4'
-                    binning = 4;
-            end %switch
-        end %fun
-        function set_pixel_binning(this,mode)
-            if gui_running(this)
-                if gui_live_mode(this)
-                    toggle_gui_live_mode(this,0)
-                end %if
-            end %if
-            
-            switch mode
-                case 1
-                    this.CoreAPI.setProperty(this.Camera,'Binning','1x1');
-                case 2
-                    this.CoreAPI.setProperty(this.Camera,'Binning','2x2');
-                case 3
-                    this.CoreAPI.setProperty(this.Camera,'Binning','4x4');
-                otherwise
-                    %error
-            end %switch
-            
-            if gui_running(this)
-                if gui_live_mode(this)
-                    toggle_gui_live_mode(this,0)
-                end %if
-            end %if
-        end %fun
-        function pxSize = get_img_px_size(this)
-            switch get_objective_revolver_position(this)
-                case 0
-                    magnification = 20;
-                case 2
-                    magnification = 60;
-                case 3
-                    magnification = 100;
-                case 4
-                    magnification = 150;
-            end %switch
-            
-            binningFac = get_pixel_binning(this);
-            
-            pxSize = this.PhysPxSize/magnification*binningFac; %[µm]
-        end %fun
-        
-        function ROI = get_camera_ROI(this)
-            javaROI = this.CoreAPI.getROI;
-            
-            i0 = getY(javaROI);
-            j0 = getX(javaROI);
-            imgHeigth = getHeight(javaROI);
-            imgWidth = getWidth(javaROI);
-            
-            ROI = [i0 j0 imgWidth imgHeigth];
-        end %fun
-        function set_camera_ROI(this,ROI)
-            this.CoreAPI.setROI(ROI(1),ROI(2),ROI(3),ROI(4))
-        end %fun
-        
-        function exposureTimeMs = get_exposure_time(this)
-            exposureTimeMs = this.CoreAPI.getExposure;
-            %             exposureTimeMs = this.CoreAPI.getProperty(this.Camera,'Exposure');
-        end %fun
-        function set_exposure_time(this,exposureTimeMs) %[ms]
-            if gui_running(this)
-                if gui_live_mode(this)
-                    toggle_gui_live_mode(this,0)
-                end %if
-            end %if
-            
-            this.CoreAPI.setExposure(exposureTimeMs)
-            %             this.CoreAPI.setProperty(this.Camera,'Exposure',exposureTimeMs)
-            
-            if gui_running(this)
-                if gui_live_mode(this)
-                    toggle_gui_live_mode(this,0)
-                end %if
-            end %if
-        end %fun
-        
-        function set_olympus_hub_control(this,mode) %(0 -> only computer & 1 -> computer + manual)
-            %mode = 0 -> only computer
-            %mode = 1 -> computer + manual
-            switch mode
-                case 0
-                    this.CoreAPI.setProperty(this.OlympusHub,'Control','Computer');
-                case 1
-                    this.CoreAPI.setProperty(this.OlympusHub,'Control','Manual + Computer');
-                otherwise
-                    %error
-                    return
-            end %switch
-        end %fun
-        
-        function zPosition = get_objective_stage_z_position(this)
-            zPosition = this.CoreAPI.getPosition(this.ObjectiveStage);
-        end %fun
-        function set_objective_stage_z_position_micron(this,zPosMicron)
-            zPosMicron = min(this.StageMaxLimit,...
-                max(this.StageMinLimit,zPosMicron));
-            
-            this.CoreAPI.setPosition(this.ObjectiveStage,zPosMicron)
-            this.CoreAPI.waitForDevice(this.ObjectiveStage)
-        end %fun
-        
-        %------- PIEZO
-        function zPosition = get_piezo_z_position(this)
-            if isempty(this.Piezo)
-                zPosition = [];
-            else
-                zPosition = this.CoreAPI.getPosition(this.Piezo);
-            end %if
-        end %fun
-        function set_piezo_z_position_micron(this,zPosMicron)
-            %             if get_auto_focus_state(this) == 1
-            %                 %the auto focus will block any input, so we switch it off
-            %                 set_auto_focus_state(this,0)
-            %             end %fun
-            
-            zPosMicron = min(this.PiezoMaxLimit,max(this.PiezoMinLimit,zPosMicron));
-            this.CoreAPI.setPosition(this.Piezo,zPosMicron)
-            this.CoreAPI.waitForDevice(this.Piezo)
-        end %fun
-        
-        %------- OBJECTIVE
-        function pos = get_objective_revolver_position(this)
-            pos = this.CoreAPI.getState(this.ObjectiveRevolver);
-        end %fun
-        function set_objective_revolver_position(this,pos) %(0 ==> 20x & 2 ==> 60x & 3 ==> 100x & 4 ==> 150x)
-            if gui_running(this)
-                if gui_live_mode(this)
-                    %switch off lasers
-                    return
-                end %if
-            end %if
-            
-            % 0 ==> 20x
-            % 2 ==> 60x
-            % 3 ==> 100x
-            % 4 ==> 150x
-            if not(any([0 2 3 4] == pos))
-                fprintf('\nExpected Input: \n0 ==> 20x \n2 ==> 60x\n3 ==> 100x \n4 ==> 150x\n')
-                return
-            end %if
-            
-            switch pos
-                case 0
-                    fprintf('\n Objective: 20x\n')
-                case 2
-                    fprintf('\n Objective: 60x\n')
-                case 3
-                    fprintf('\n Objective: 100x\n')
-                case 4
-                    fprintf('\n Objective: 150x\n')
-            end %switch
-            
-            if pos == get_objective_revolver_position(this)
-                %no change in current position
-                return
-            end %if
-            
-            %check that objective is in the lowest position before changing
-            set_objective_stage_z_position_micron(this,this.StageMinLimit)
-            
-            if get_objective_stage_z_position(this) == this.StageMinLimit
-                this.CoreAPI.setState(this.ObjectiveRevolver,pos)
-                this.CoreAPI.waitForDevice(this.ObjectiveRevolver);
-                
-                switch pos
-                    case 2
-                        set_auto_focus_objective(this,60)
-                    case [3,4]
-                        set_auto_focus_objective(this,100)
-                end %switch
-            else
-                fprintf('\nError: Objective could not be moved into safe position at %.2f\n',this.StageMinLimit)
-            end %if
-        end %fun
-        
-        %------- TRANSMISSION LAMP
-        function state = get_transmission_lamp_power(this)
+        %%
+        function state = get_tranmission_lamp_power(this)
             % 1 ==> lamp is on
             state = this.CoreAPI.getState(this.TransmissionLamp);
         end %fun
-        function state = get_transmission_lamp_shutter_state(this)
+        function state = get_tranmission_lamp_shutter_state(this)
             % 1 ==> shutter open
             state = this.CoreAPI.getProperty(this.TransmissionLampShutter,'State');
         end %fun
-        function voltage = get_transmission_lamp_voltage(this)
+        function voltage = get_tranmission_lamp_voltage(this)
             voltage = this.CoreAPI.getProperty(this.TransmissionLamp,'Voltage');
             %convert to MATLAB double
             voltage = double(java.lang.Double(voltage));
         end %fun
-        function state = get_transmission_lamp_auto_shutter_state(this)
+        function state = get_tranmission_lamp_auto_shutter_state(this)
             % 1 ==> auto shutter ON
             state = this.CoreAPI.getProperty(this.Core,'AutoShutter');
         end %fun
         
-        function set_transmission_lamp_power(this,state) % 1 ==> lamp is on
-            %parse input
-            if islogical(state)
-                state = double(state);
-            elseif (state == 0) || (state == 1)
-            else
-                fprintf('\nExpected Input: \n0 ==> Transmission Lamp OFF \n1 ==> Transmission Lamp ON\n')
-                return
-            end %if
-            
-            if (state == 0)
-                fprintf('\n Transmission Lamp: OFF\n')
-            elseif (state == 1)
-                fprintf('\n Transmission Lamp: ON\n')
-            end %if
-            
-            if state == get_transmission_lamp_power(this)
-                %no change in current state
-                return
-            end %if
-            
-            % 1 ==> lamp is on
-            this.CoreAPI.setState(this.TransmissionLamp,state)
-            this.CoreAPI.waitForDevice(this.TransmissionLamp);
+        function pos = get_objective_revolver_position(this)
+            pos = this.CoreAPI.getState(this.ObjectiveRevolver);
         end %fun
-        function set_transmission_lamp_shutter_state(this,state) % 1 ==> shutter open
-            %parse input
-            if islogical(state)
-                state = double(state);
-            elseif (state == 0) || (state == 1)
-            else
-                fprintf('\nExpected Input: \n0 ==> Transmission Lamp Shutter CLOSED \n1 ==> Transmission Lamp Shutter OPEN\n')
-                return
-            end %if
-            
-            if (state == 0)
-                fprintf('\n Transmission Lamp Shutter: CLOSED\n')
-            elseif (state == 1)
-                fprintf('\n Transmission Lamp Shutter: OPEN\n')
-            end %if
-            
-            if state == get_transmission_lamp_shutter_state(this)
-                %no change in current state
-                return
-            end %if
-            
-            % 1 ==> shutter open
-            this.CoreAPI.setProperty(this.TransmissionLampShutter,'State',state)
-        end %fun
-        function set_transmission_lamp_voltage(this,voltage) %[V]
-            if not(isscalar(voltage) & isnumeric(voltage))
-                fprintf('\nExpected Input: \n%0.1f <= Brightness [V] <= %0.1f\n',...
-                    this.TransmissionLampMinVoltage,this.TransmissionLampMaxVoltage)
-                return
-            end %if
-            
-            voltage = min(this.TransmissionLampMaxVoltage,...
-                max(this.TransmissionLampMinVoltage,voltage));
-            
-            fprintf('\n Transmission Lamp Brightness: %.1f V\n',voltage)
-            
-            if voltage == get_transmission_lamp_voltage(this)
-                %no change in current state
-                return
-            end %if
-            
-            %convert to JAVA string
-            voltage = java.lang.String(num2str(voltage,'%.1f'));
-            this.CoreAPI.setProperty(this.TransmissionLamp,'Voltage',voltage)
-            this.CoreAPI.waitForDevice(this.TransmissionLamp);
-        end %fun
-        function set_transmission_lamp_auto_shutter(this,state) % 1 ==> auto shutter ON
-            if islogical(state)
-                state = double(state);
-            elseif (state == 0) || (state == 1)
-            else
-                fprintf('\nExpected Input: \n0 ==> Auto Shutter OFF \n1 ==> Auto Shutter ON\n')
-                return
-            end %if
-            
-            if (state == 0)
-                fprintf('\n Auto Shutter: OFF\n')
-            elseif (state == 1)
-                fprintf('\n Auto Shutter: ON\n')
-            end %if
-            
-            if state == get_transmission_lamp_auto_shutter_state(this)
-                %no change in current state
-                return
-            end %if
-            
-            % 1 ==> auto shutter ON
-            this.CoreAPI.setProperty(this.Core,'AutoShutter',state)
-        end %fun
-        
-        %------- LIGHT PATH
         function state = get_light_path_state(this)
             % 0 ==> Ocular
             % 1 ==> camera
             state = this.CoreAPI.getState(this.LightPath);
         end %fun
-        function set_light_path_state(this,state) %(0 ==> Ocular & 1 ==> camera)
-            %parse input
-            if islogical(state)
-                state = double(state);
-            elseif (state == 0) || (state == 1)
-            else
-                fprintf('\nExpected Input: \n0 ==> Ocular \n1 ==> Camera\n')
-                return
-            end %if
-            
-            if (state == 0)
-                fprintf('\n Light Path: Ocular\n')
-            elseif (state == 2)
-                fprintf('\n Light Path: Camera\n')
-            end %if
-            
-            if state == get_light_path_state(this)
-                %no change in current state
-                return
-            end %if
-            
-            % 0 ==> Ocular
-            % 1 ==> camera
-            this.CoreAPI.setState(this.LightPath,state)
-            this.CoreAPI.waitForDevice(this.LightPath);
-        end %fun
-        
-        %------- DICHROID
         function pos = get_filter_revolver_position(this)
             pos = this.CoreAPI.getState(this.FilterRevolver);
         end %fun
-        function set_filter_revolver_position(this,pos) %(0 ==> 405/488/561/642 & 5 ==> DIC)
-            if gui_running(this)
-                if gui_live_mode(this)
-                    if get_transmission_lamp_power(this) && ...
-                            get_transmission_lamp_shutter_state(this)
-                        %switch off lamp
-                        set_transmission_lamp_shutter_state(this,0)
-                    end %if
-                    %switch off lasers
-                    return
-                end %if
-            end %if
-            
-            % 0 ==> 405/488/561/642
-            % 5 ==> DIC
-            if not(any([0 5] == pos))
-                %error
-                return
-            end %if
-            
-            if (pos == 0)
-                fprintf('\n Filter Cube: 405/488/561/642\n')
-            elseif (pos == 5)
-                fprintf('\n Filter Cube: DIC\n')
-            end %if
-            
-            if pos == get_filter_revolver_position(this)
-                %no change in current position
-                return
-            end %if
-            
-            this.CoreAPI.setState(this.FilterRevolver,pos)
-            this.CoreAPI.waitForDevice(this.FilterRevolver);
+        
+        function binning = get_pixel_binning(this)
+            binning = this.CoreAPI.getProperty(this.Camera,'Binning');
+        end %fun
+        function exposureTimeMs = get_exposure_time(this)
+            exposureTimeMs = this.CoreAPI.getExposure;
+            %             exposureTimeMs = this.CoreAPI.getProperty(this.Camera,'Exposure');
+        end %fun
+        function zPosition = get_objective_stage_z_position(this)
+            zPosition = this.CoreAPI.getPosition(this.ObjectiveStage);
+        end %fun
+        function zPosition = get_piezo_z_position(this)
+            zPosition = this.CoreAPI.getPosition(this.Piezo);
         end %fun
         
-        %------- X-Y-STAGE
-        function xyStageCtr = get_central_xy_pos(this)
-            xyStageCtr = this.XYStageCtr;
-        end %fun
         function xyPosition = get_xy_pos_micron(this)
             xyPosition = [this.CoreAPI.getXPosition(this.XYStage)...
                 this.CoreAPI.getYPosition(this.XYStage)];
@@ -670,65 +262,6 @@ classdef classMicroManagerWrapper < handle
                 this.CoreAPI.getProperty(this.XYStage,'StepSizeY [um]')];
         end %fun
         
-        function set_central_xy_pos(this)
-            this.XYStageCtr = get_xy_pos_micron(this);
-        end %fun
-        function set_xy_pos_micron(this,xyPosMicron) %[µm] (x,y)
-            if not(numel(xyPosMicron) == 2)
-                %error
-                return
-            end %if
-            
-            dstvect = xyPosMicron - this.XYStageCtr;
-            dst =  sqrt(dstvect(1)^2 + dstvect(2)^2);
-            
-            if(dst >= this.XYStageMaxRadius)
-                thta = atan2(dstvect(2),dstvect(1));
-                xyPosMicron = [this.XYStageMaxRadius*cos(thta) + this.XYStageCtr(1),...
-                    this.XYStageMaxRadius*sin(thta) + this.XYStageCtr(2)];
-            elseif(dst < this.XYStageMaxRadius)
-                xyPosMicron = xyPosMicron;
-            else
-                xyPosMicron = get_xy_pos_micron(this);
-                fprintf('something funky happened')
-            end
-            
-            this.CoreAPI.setXYPosition(this.XYStage,xyPosMicron(1),xyPosMicron(2));
-            this.CoreAPI.waitForDevice(this.XYStage);
-        end %fun
-        function set_xy_rel_pos_micron(this,xyRelPos)
-            if not(numel(xyRelPos) == 2)
-                %error
-                return
-            end %if
-            
-            xyPosMicron = get_xy_pos_micron(this) + xyRelPos;
-            set_xy_pos_micron(this,xyPosMicron)
-        end %fun
-        function set_xy_speed(this,xySpeed) %[mm/s]
-            %[xSpeed ySpeed] in mm/s
-            xySpeed = [min(this.XYStageMaxSpeed,max(this.XYStageMinSpeed,xySpeed(1))) ...
-                min(this.XYStageMaxSpeed,max(this.XYStageMinSpeed,xySpeed(2)))];
-            
-            this.CoreAPI.setProperty(this.XYStage,'SpeedX [mm/s]',xySpeed(1))
-            this.CoreAPI.setProperty(this.XYStage,'SpeedY [mm/s]',xySpeed(2))
-            
-            fprintf('\nXY-Stage Speed: \nx = %.3f [mm/s]\ny = %.3f [mm/s]\n',...
-                xySpeed(1),xySpeed(2))
-        end %fun
-        function set_xy_acceleration(this,xyAcceleration) %[m/s^2]
-            %[xSpeed ySpeed] in m/s^2
-            xyAcceleration = [min(this.XYStageMaxAcceleration,max(this.XYStageMinAcceleration,xyAcceleration(1))) ...
-                min(this.XYStageMaxAcceleration,max(this.XYStageMinAcceleration,xyAcceleration(2)))];
-            
-            this.CoreAPI.setProperty(this.XYStage,'Acceleration X [m/s^2]',xyAcceleration(1))
-            this.CoreAPI.setProperty(this.XYStage,'Acceleration Y [m/s^2]',xyAcceleration(2))
-            
-            fprintf('\nXY-Stage Acceleration: \nx = %.3f [m/s^2]\ny = %.3f [m/s^2]\n',...
-                xyAcceleration(1),xyAcceleration(2))
-        end %fun
-        
-        %------- AUTO-FOCUS
         function state = get_auto_focus_state(this)
             state = this.CoreAPI.getProperty(this.AutoFocus,'ContinuousMode');
             
@@ -764,6 +297,329 @@ classdef classMicroManagerWrapper < handle
             offset = str2double(char(offset));
         end %fun
         
+        %% setter
+        function set_pixel_binning(this,mode)
+            if gui_running(this)
+                if gui_live_mode(this)
+                    toggle_gui_live_mode(this,0)
+                end %if
+            end %if
+            
+            switch mode
+                case 1
+                    this.CoreAPI.setProperty(this.Camera,'Binning','1x1');
+                case 2
+                    this.CoreAPI.setProperty(this.Camera,'Binning','2x2');
+                case 3
+                    this.CoreAPI.setProperty(this.Camera,'Binning','4x4');
+                otherwise
+                    %error
+            end %switch
+            
+            if gui_running(this)
+                if gui_live_mode(this)
+                    toggle_gui_live_mode(this,0)
+                end %if
+            end %if
+        end %fun
+        function set_exposure_time(this,exposureTimeMs)
+            if gui_running(this)
+                if gui_live_mode(this)
+                    toggle_gui_live_mode(this,0)
+                end %if
+            end %if
+            
+            this.CoreAPI.setExposure(exposureTimeMs)
+            %             this.CoreAPI.setProperty(this.Camera,'Exposure',exposureTimeMs)
+            
+            if gui_running(this)
+                if gui_live_mode(this)
+                    toggle_gui_live_mode(this,0)
+                end %if
+            end %if
+        end %fun
+        function set_olympus_hub_control(this,mode)
+            %mode = 0 -> only computer
+            %mode = 1 -> computer + manual
+            switch mode
+                case 0
+                    this.CoreAPI.setProperty(this.OlympusHub,'Control','Computer');
+                case 1
+                    this.CoreAPI.setProperty(this.OlympusHub,'Control','Manual + Computer');
+                otherwise
+                    %error
+                    return
+            end %switch
+        end %fun
+        function set_objective_stage_z_position_micron(this,zPosMicron)
+            zPosMicron = min(this.StageMaxLimit,...
+                max(this.StageMinLimit,zPosMicron));
+            
+            this.CoreAPI.setPosition(this.ObjectiveStage,zPosMicron)
+            this.CoreAPI.waitForDevice(this.ObjectiveStage)
+        end %fun
+        function set_piezo_z_position_micron(this,zPosMicron)
+            if get_auto_focus_state(this) == 1
+                %the auto focus will block any input, so we switch it off
+                set_auto_focus_state(this,0)
+            end %fun
+            
+            zPosMicron = min(this.PiezoMaxLimit,max(this.PiezoMinLimit,zPosMicron));
+            this.CoreAPI.setPosition(this.Piezo,zPosMicron)
+            this.CoreAPI.waitForDevice(this.Piezo)
+        end %fun
+        function set_objective_revolver_position(this,pos)
+            if gui_running(this)
+                if gui_live_mode(this)
+                    %switch off lasers
+                    return
+                end %if
+            end %if
+            
+            % 0 ==> 20x
+            % 2 ==> 60x
+            % 3 ==> 100x
+            % 4 ==> 150x
+            if not(any([0 2 3 4] == pos))
+                fprintf('\nExpected Input: \n0 ==> 20x \n2 ==> 60x\n3 ==> 100x \n4 ==> 150x\n')
+                return
+            end %if
+            
+            switch pos
+                case 0
+                    fprintf('\n Objective: 20x\n')
+                case 2
+                    fprintf('\n Objective: 60x\n')
+                case 3
+                    fprintf('\n Objective: 100x\n')
+                case 4
+                    fprintf('\n Objective: 150x\n')
+            end %switch
+            
+            if pos == get_objective_revolver_position(this)
+                %no change in current position
+                return
+            end %if
+            
+            %check that objective is in the lowest position before changing
+            set_objective_stage_z_position_micron(this,this.StageMinLimit)
+            this.CoreAPI.setState(this.ObjectiveRevolver,pos)
+            this.CoreAPI.waitForDevice(this.ObjectiveRevolver);
+        end %fun
+        
+        function set_tranmission_lamp_power(this,state)
+            %parse input
+            if islogical(state)
+                state = double(state);
+            elseif (state == 0) || (state == 1)
+            else
+                fprintf('\nExpected Input: \n0 ==> Tranmission Lamp OFF \n1 ==> Tranmission Lamp ON\n')
+                return
+            end %if
+            
+            if (state == 0)
+                fprintf('\n Tranmission Lamp: OFF\n')
+            elseif (state == 1)
+                fprintf('\n Tranmission Lamp: ON\n')
+            end %if
+            
+            if state == get_tranmission_lamp_power(this)
+                %no change in current state
+                return
+            end %if
+            
+            % 1 ==> lamp is on
+            this.CoreAPI.setState(this.TransmissionLamp,state)
+            this.CoreAPI.waitForDevice(this.TransmissionLamp);
+        end %fun
+        function set_tranmission_lamp_shutter_state(this,state)
+            %parse input
+            if islogical(state)
+                state = double(state);
+            elseif (state == 0) || (state == 1)
+            else
+                fprintf('\nExpected Input: \n0 ==> Transmission Lamp Shutter CLOSED \n1 ==> Transmission Lamp Shutter OPEN\n')
+                return
+            end %if
+            
+            if (state == 0)
+                fprintf('\n Tranmission Lamp Shutter: CLOSED\n')
+            elseif (state == 1)
+                fprintf('\n Tranmission Lamp Shutter: OPEN\n')
+            end %if
+            
+            if state == get_tranmission_lamp_shutter_state(this)
+                %no change in current state
+                return
+            end %if
+            
+            % 1 ==> shutter open
+            this.CoreAPI.setProperty(this.TransmissionLampShutter,'State',state)
+        end %fun
+        function set_tranmission_lamp_voltage(this,voltage)
+            if not(isscalar(voltage) & isnumeric(voltage))
+                fprintf('\nExpected Input: \n%0.1f <= Brightness [V] <= %0.1f\n',...
+                    this.TransmissionLampMinVoltage,this.TransmissionLampMaxVoltage)
+                return
+            end %if
+            
+            voltage = min(this.TransmissionLampMaxVoltage,...
+                max(this.TransmissionLampMinVoltage,voltage));
+            
+            fprintf('\n Transmission Lamp Brightness: %.1f V\n',voltage)
+            
+            if voltage == get_tranmission_lamp_voltage(this)
+                %no change in current state
+                return
+            end %if
+            
+            %convert to JAVA string
+            voltage = java.lang.String(num2str(voltage,'%.1f'));
+            this.CoreAPI.setProperty(this.TransmissionLamp,'Voltage',voltage)
+            this.CoreAPI.waitForDevice(this.TransmissionLamp);
+        end %fun
+        function set_transmission_lamp_auto_shutter(this,state)
+            if islogical(state)
+                state = double(state);
+            elseif (state == 0) || (state == 1)
+            else
+                fprintf('\nExpected Input: \n0 ==> Auto Shutter OFF \n1 ==> Auto Shutter ON\n')
+                return
+            end %if
+            
+            if (state == 0)
+                fprintf('\n Auto Shutter: OFF\n')
+            elseif (state == 1)
+                fprintf('\n Auto Shutter: ON\n')
+            end %if
+            
+            if state == get_tranmission_lamp_auto_shutter_state(this)
+                %no change in current state
+                return
+            end %if
+            
+            % 1 ==> auto shutter ON
+            this.CoreAPI.setProperty(this.Core,'AutoShutter',state)
+        end %fun
+        
+        function set_light_path_state(this,state)
+            %parse input
+            if islogical(state)
+                state = double(state);
+            elseif (state == 0) || (state == 1)
+            else
+                fprintf('\nExpected Input: \n0 ==> Ocular \n1 ==> Camera\n')
+                return
+            end %if
+            
+            if (state == 0)
+                fprintf('\n Light Path: Ocular\n')
+            elseif (state == 2)
+                fprintf('\n Light Path: Camera\n')
+            end %if
+            
+            if state == get_light_path_state(this)
+                %no change in current state
+                return
+            end %if
+            
+            % 0 ==> Ocular
+            % 1 ==> camera
+            this.CoreAPI.setState(this.LightPath,state)
+            this.CoreAPI.waitForDevice(this.LightPath);
+        end %fun
+        
+        function set_filter_revolver_position(this,pos)
+            if gui_running(this)
+                if gui_live_mode(this)
+                    if get_tranmission_lamp_power(this) && ...
+                            get_tranmission_lamp_shutter_state(this)
+                        %switch off lamp
+                        set_tranmission_lamp_shutter_state(this,0)
+                    end %if
+                    %switch off lasers
+                    return
+                end %if
+            end %if
+            
+            % 0 ==> 405/488/561/642
+            % 5 ==> DIC
+            if not(any([0 5] == pos))
+                %error
+                return
+            end %if
+            
+            if (pos == 0)
+                fprintf('\n Filter Cube: 405/488/561/642\n')
+            elseif (pos == 5)
+                fprintf('\n Filter Cube: DIC\n')
+            end %if
+            
+            if pos == get_filter_revolver_position(this)
+                %no change in current position
+                return
+            end %if
+            
+            this.CoreAPI.setState(this.FilterRevolver,pos)
+            this.CoreAPI.waitForDevice(this.FilterRevolver);
+        end %fun
+        
+        function set_xy_pos_micron(this,xyPosMicron)
+            if not(numel(xyPosMicron) == 2)
+                %error
+                return
+            end %if
+            
+            dstvect = xyPosMicron - this.XYStageCtr;
+            dst =  sqrt(dstvect(1)^2 + dstvect(2)^2);
+            
+            if(dst >= this.XYStageMaxRadius)
+                thta = atan2(dstvect(2),dstvect(1));
+                xyPosMicron = [this.XYStageMaxRadius*cos(thta) + this.XYStageCtr(1),...
+                    this.XYStageMaxRadius*sin(thta) + this.XYStageCtr(2)];
+            elseif(dst < this.XYStageMaxRadius)
+                xyPosMicron = xyPosMicron;
+            else
+                xyPosMicron = get_xy_pos_micron(this);
+                fprintf('something funky happened')
+            end
+            
+            
+            this.CoreAPI.setXYPosition(this.XYStage,xyPosMicron(1),xyPosMicron(2));
+            this.CoreAPI.waitForDevice(this.XYStage);
+        end %fun
+        function set_xy_rel_pos_micron(this,xyRelPos)
+            if not(numel(xyRelPos) == 2)
+                %error
+                return
+            end %if
+            
+            xyPosMicron = get_xy_pos_micron(this) + xyRelPos;
+            set_xy_pos_micron(this,xyPosMicron)
+        end %fun
+        function set_xy_speed(this,xySpeed)
+            %[xSpeed ySpeed] in mm/s
+            xySpeed = [min(this.XYStageMaxSpeed,max(this.XYStageMinSpeed,xySpeed(1))) ...
+                min(this.XYStageMaxSpeed,max(this.XYStageMinSpeed,xySpeed(2)))];
+            
+            this.CoreAPI.getProperty(this.XYStage,'SpeedX [mm/s]',xySpeed(1))
+            this.CoreAPI.getProperty(this.XYStage,'SpeedX [mm/s]',xySpeed(2))
+            
+            fprintf('\nXY-Stage Speed: \nx = %.3f [mm/s]\ny = %.3f [mm/s]\n',...
+                xySpeed(1),xySpeed(2))
+        end %fun
+        function set_xy_acceleration(this,xyAcceleration)
+            %[xSpeed ySpeed] in mm/s
+            xyAcceleration = [min(this.XYStageMaxAcceleration,max(this.XYStageMinAcceleration,xyAcceleration(1))) ...
+                min(this.XYStageMaxAcceleration,max(this.XYStageMinAcceleration,xyAcceleration(2)))];
+            
+            this.CoreAPI.getProperty(this.XYStage,'Acceleration X [m/s^2]',xyAcceleration(1))
+            this.CoreAPI.getProperty(this.XYStage,'Acceleration Y [m/s^2]',xyAcceleration(2))
+            
+            fprintf('\nXY-Stage Acceleration: \nx = %.3f [m/s^2]\ny = %.3f [m/s^2]\n',...
+                xyAcceleration(1),xyAcceleration(2))
+        end %fun
+        
         function set_auto_focus_state(this,state)
             if islogical(state)
                 state = double(state);
@@ -786,15 +642,13 @@ classdef classMicroManagerWrapper < handle
             
             switch state
                 case 0
-                    this.CoreAPI.setProperty(this.AutoFocus,...
-                        'ContinuousMode',java.lang.String('Off'));
+                    state = java.lang.String('Off');
                 case 1
-                    this.CoreAPI.setProperty(this.AutoFocus,...
-                        'ContinuousMode',java.lang.String('On'));
+                    state = java.lang.String('On');
             end %switch
+            
+            this.CoreAPI.setProperty(this.AutoFocus,'ContinuousMode',state);
             this.CoreAPI.waitForDevice(this.AutoFocus);
-            %wait some seconds so the autofocus can stabilize
-            pause(1)
             
             if state == 1 && get_auto_focus_state(this) == 0
                 fprintf('\n Auto Focus could not be determined.\n')
@@ -809,7 +663,7 @@ classdef classMicroManagerWrapper < handle
             switch objective
                 case 60
                     objective = java.lang.String('ApoN60XOTIRF');
-                    fprintf('\n Auto Focus Objective: ApoN60XOTIRF\n')
+                    fprintf('\n Auto Focus Objective: UApoN100XOTIRF\n')
                 case 100
                     objective = java.lang.String('UApoN100XOTIRF');
                     fprintf('\n Auto Focus Objective: UApoN100XOTIRF\n')
@@ -875,24 +729,6 @@ classdef classMicroManagerWrapper < handle
             this.CoreAPI.waitForDevice(this.AutoFocus)
         end %fun
         
-        function meta = get_acq_meta(this)
-            meta = struct(...
-                'Time',datevec(now),...
-                'ExposureTime',get_exposure_time(this),...
-                'CameraROI',get_camera_ROI(this),...
-                'PixelBinning',get_pixel_binning(this),...
-                'PixelSize',get_img_px_size(this),...
-                'PositionXY',get_xy_pos_micron(this),...
-                'StageZ',get_objective_stage_z_position(this),...
-                'StateZDC',get_auto_focus_state(this),...
-                'OffsetZDC',get_auto_focus_offset(this),...
-                'PiezoZ',get_piezo_z_position(this),...
-                'StateTIRF',get_fiber_state(this.TIRF),...
-                'PosTIRF',get_fiber_position(this.TIRF),...
-                'StateLaser',get_laser_state(this.Laser),...
-                'PowerLaser',get_laser_power(this.Laser));
-        end %fun
-        
         %% checker
         function flag = gui_running(this)
             if isempty(this.GuiAPI)
@@ -905,260 +741,75 @@ classdef classMicroManagerWrapper < handle
             flag = this.GuiAPI.isLiveModeOn();
         end %fun
         
-        %%
-        function [img,meta] = snap_img(this)
+        %% acquisition
+        function img = get_actual_image(this)
             this.CoreAPI.snapImage();
-            img = double(this.CoreAPI.getImage());
-            idxUnderflow = img < 0;
-            if any(idxUnderflow(:))
-                img(idxUnderflow) = img(idxUnderflow) + 2^16;
-                disp('Camera over-saturated')
-            end %if
+            img = this.CoreAPI.getImage();
             imgWidth = this.CoreAPI.getImageWidth();
             imgHeight = this.CoreAPI.getImageHeight();
             img = reshape(img,imgWidth,imgHeight);
-            img = transpose(img);
-            
-            if nargout == 2 %generates meta information if requested by caller
-                meta = get_acq_meta(this);
-            end %if
+            img = double(transpose(img));
         end %fun
-        
-        %------ Rectangular scanning
-        function [x,y,bad] = set_rectangular_path(this,numX,numY)
-            %calculate stepsize to produce no overlap
-            pxSize = get_img_px_size(this); %[µm]
-            imgWidth = this.CoreAPI.getImageWidth()*pxSize;
-            imgHeight = this.CoreAPI.getImageHeight()*pxSize;
-            
-            totalHeight = numY*imgHeight;
-            totalWidth = numX*imgWidth;
-            
-            [X,Y] = meshgrid(...
-                (-totalWidth/2+imgWidth/2:imgWidth:totalWidth/2-imgWidth/2)+this.XYStageCtr(1),...
-                (-totalHeight/2+imgHeight/2:imgHeight:totalHeight/2-imgHeight/2)+this.XYStageCtr(2));
-            Y(:,2:2:end) = flipud(Y(:,2:2:end));
-            x = X(:);
-            y = Y(:);
-            
-            %check that the stage does not leave the safety region
-            dr = sqrt((X-this.XYStageCtr(1)).^2+(Y-this.XYStageCtr(2)).^2);
-            bad = (dr > this.XYStageMaxRadius);
-            x(bad) = [];
-            y(bad) = [];
-        end %fun
-        
-        function [img,x,y,img_] = acq_rectangular_path_DIC(this,numX,numY)
-            [x,y,bad] = set_rectangular_path(this,numX,numY); %[µm] generates the path coordinates using non-overlapping steps
-            img_ = acq_path_DIC(this,x,y); %acqures images along the path
-            
-            if any(bad(:)) %in case of non-rectangular path
-                img = cell(numel(bad),1);
-                img(not(bad(:))) = img_;
-                img(bad(:)) = {zeros(this.CoreAPI.getImageHeight(),...
-                    this.CoreAPI.getImageWidth())};
-            else
-                img = img_;
-            end %if
-            
-            imgCol = cell(1,numX);
-            for j = 1:numX
-                if rem(j,2) %odd
-                    imgCol{1,j} = vertcat(img{(1:numY)+(j-1)*numX});
-                else
-                    imgCol{1,j} = vertcat(img{(numY:-1:1)+(j-1)*numX});
-                end %if
-            end %for
-            img = horzcat(imgCol{:});
-        end %fun
-        function [img,meta] = acq_path_DIC(this,x,y)
-            set_laser_state(this.Laser,405,0); %switch off laser
-            pause(0.05)
-            set_laser_state(this.Laser,488,0); %switch off laser
-            pause(0.05)
-            set_laser_state(this.Laser,561,0); %switch off laser
-            pause(0.05)
-            set_laser_state(this.Laser,640,0); %switch off laser
-            pause(0.05)
-            
-            set_filter_revolver_position(this,5) %put analysator (2nd polarizer)
-            %             set_transmission_lamp_shutter_state(this,1) %open bright-field lamp shutter (in case)
-            
-            %%
-            hImg = [];
-            numFrame = numel(x);
-            img = cell(numFrame,1);
-            for idxPos = 1:numFrame
-                set_xy_pos_micron(this,[x(idxPos) y(idxPos)]) %move stage
-                pause(0.5) %delay for the auto-focus to adapt
-                
-                [img{idxPos,1},meta(idxPos,1)] = snap_img_DIC(this); %acquire image
-                
-                [hImg,~,hFig] = classMicroManagerWrapper.live_acquisition(img{idxPos,1},hImg);
-                sprintf('Acquisition: %d/%d',idxPos,numFrame)
-            end %for
-            close(hFig)
-            %%
-            %             set_transmission_lamp_shutter_state(this,0) %close bright-field lamp shutter (in case)
-        end %fun
-        function [img,meta] = snap_img_DIC(this)
-            set_cleanup_filter_set(this.CleanupFilter,5) %remove any cleanup filter
-            set_transmission_lamp_shutter_state(this,1)
-            
-            [img,meta] = snap_img(this);
-            
-            set_transmission_lamp_shutter_state(this,0)
-        end %fun
-        
-        function [img,x,y,img_] = acq_rectangular_path_fluorescense(this,numX,numY,laser)
-            [x,y,bad] = set_rectangular_path(this,numX,numY); %[µm] generates the path coordinates using non-overlapping steps
-            img_ = acq_path_fluorescense(this,x,y,laser); %acqures images along the path
-            
-            if any(bad(:)) %in case of non-rectangular path
-                img = cell(numel(bad),1);
-                img(not(bad(:))) = img_;
-                img(bad(:)) = {zeros(this.CoreAPI.getImageHeight(),...
-                    this.CoreAPI.getImageWidth())};
-            else
-                img = img_;
-            end %if
-            
-            imgCol = cell(1,numX);
-            for j = 1:numX
-                if rem(j,2) %odd
-                    imgCol{1,j} = vertcat(img{(1:numY)+(j-1)*numX});
-                else
-                    imgCol{1,j} = vertcat(img{(numY:-1:1)+(j-1)*numX});
-                end %if
-            end %for
-            img = horzcat(imgCol{:});
-        end %fun
-        function [img,meta] = acq_path_fluorescense(this,x,y,laser)
-            set_transmission_lamp_shutter_state(this,0) %close bright-field lamp shutter (in case)
-            set_filter_revolver_position(this,0) %put 405/488/561/640 dichroic (Schweizer Käse)
-            
-            %%
-            hImg = [];
-            numFrame = numel(x);
-            img = cell(numFrame,1);
-            for idxPos = 1:numFrame
-                set_xy_pos_micron(this,[x(idxPos) y(idxPos)]) %move stage
-                pause(0.5) %delay for the auto-focus to adapt
-                
-                [img{idxPos,1},meta(idxPos,1)] = snap_img_fluorescence(this,laser); %acquire image
-                
-                [hImg,~,hFig] = classMicroManagerWrapper.live_acquisition(img{idxPos,1},hImg);
-                sprintf('Acquisition: %d/%d',idxPos,numFrame)
-            end %for
-            close(hFig)
-        end %fun
-        function [img,meta] = snap_img_fluorescence(this,laser)
-            set_cleanup_filter_set(this.CleanupFilter,laser) %put respective cleanup filter
-            set_laser_state(this.Laser,laser,1); %switch on laser
-            
-            [img,meta] = snap_img(this);
-            
-            set_laser_state(this.Laser,laser,0); %switch on laser
-            %             set_cleanup_filter_set(this.CleanupFilter,5) %remove any cleanup filter
-        end %fun
-        
-        function imgStack = acq_mov_fluorescence(this,laser,numFrame,deadTime)
-            if nargin == 3
-                deadTime = 0; %[ms] continuous acquisition
-            end %if
-            
-            %allocate memory
+        function continous_acquisition(this)
             imgHeight = this.CoreAPI.getImageHeight();
             imgWidth = this.CoreAPI.getImageWidth();
             
-            bufferSize = (numFrame+10)*imgHeight*imgWidth*this.CoreAPI.getBytesPerPixel()*1e-6; %[megabytes]
+            bufferSize = min(1000,300*imgHeight*imgWidth*this.CoreAPI.getBytesPerPixel()*1e-6);
             this.CoreAPI.setCircularBufferMemoryFootprint(bufferSize)
             
-            %%
-            set_filter_revolver_position(this,0) %put 405/488/561/640 dichroic (Schweizer Käse)
-            set_cleanup_filter_set(this.CleanupFilter,laser) %put respective cleanup filter
-            set_laser_state(this.Laser,laser,1); %switch on laser
-            
-            this.CoreAPI.startSequenceAcquisition(numFrame, deadTime, false);
-            pause((numFrame+10)*get_exposure_time(this)/1000)
-            
-            set_laser_state(this.Laser,laser,0); %switch on laser
-            %             set_cleanup_filter_set(this.CleanupFilter,5) %remove any cleanup filter
-            
-            %%
-            imgCnt = numFrame;
-            while imgCnt > 0
-                %in case acquisition is much faster then stream to hard drive
-                %                 if this.CoreAPI.isBufferOverflowed()
-                %                     sprintf('Buffer Overflow! Increase Buffer Size.')
-                %                     break
-                %                 end %if
-                imgStack(:,:,imgCnt) = reshape(this.CoreAPI.popNextImage(),imgHeight,imgWidth);
-                imgCnt = this.CoreAPI.getRemainingImageCount();
-            end %while
-            imgStack = imgStack(:,:,numFrame:-1:1);
+            this.CoreAPI.startSequenceAcquisition(300, 0, false);
+            pause(0.1)
+            while this.CoreAPI.getRemainingImageCount() > 0
+                img = reshape(this.CoreAPI.popNextImage(),imgHeight,imgWidth);
+                imwrite(uint16(img),'E:\Users\BP\Richter\test6.tif',...
+                    'compression','none','writemode','append', 'bitdepth', 16)
+            end
+            %             this.CoreAPI.stopSequenceAcquisition();
+        end %
+        
+        function show_acquisition(this)
+            img = get_actual_image(this);
+            imagesc(img)
+            colorbar
+            axis image
         end %fun
         
-        
-        function img = stitch_img(this,img_,bad)
-            if any(bad(:)) %in case of non-rectangular path
-                img = cell(numel(bad),1);
-                img(not(bad(:))) = img_;
-                img(bad(:)) = {zeros(this.CoreAPI.getImageHeight(),...
-                    this.CoreAPI.getImageWidth())};
+        function toggle_gui_live_mode(this,state)
+            if nargin == 1 %toggle
+                switch gui_live_mode(this)
+                    case 0 %-> turn on
+                        this.GuiAPI.enableLiveMode(true)
+                    case 1 %-> turn off
+                        this.GuiAPI.enableLiveMode(false)
+                end %switch
             else
-                img = img_;
+                switch state
+                    case 0 %-> turn off
+                        this.GuiAPI.enableLiveMode(false)
+                    case 1 %-> turn on
+                        this.GuiAPI.enableLiveMode(true)
+                    otherwise
+                        %error
+                        return
+                end %switch
             end %if
-            
-            [numY,numX] = size(bad);
-            imgCol = cell(1,numX);
-            for j = 1:numX
-                if rem(j,2) %odd
-                    imgCol{1,j} = vertcat(img{(1:numY)+(j-1)*numX});
-                else
-                    imgCol{1,j} = vertcat(img{(numY:-1:1)+(j-1)*numX});
-                end %if
-            end %for
-            img = horzcat(imgCol{:});
         end %fun
-        
-        
-        function prep_acq(this,mode)
-            switch mode
-                case 'DIC'
-                    set_filter_revolver_position(this,5) %put DIC
-                    set_cleanup_filter_set(this.CleanupFilter,5) %remove any cleanup filter
-                    
-                    set_tranmission_lamp_shutter_state(this,1) %open bright-field lamp shutter (in case)
-                case {405,488,561,640}
-                    laser = mode;
-                    set_filter_revolver_position(this,0) %put 405/488/561/640 dichroic (Schweizer Käse)
-                    set_cleanup_filter_set(this.CleanupFilter,laser) %put respective cleanup filter
-                    
-                    set_tranmission_lamp_shutter_state(this,0) %close bright-field lamp shutter (in case)
-                otherwise
-                    %error
-                    disp('Acquisition Mode: "%s" not known.',mode)
-                    return
-            end %switch
-        end %fun
-        %%
         
         %% protocols
         function full_hardware_test(this)
             %test transmission lamp
-            currentState = get_transmission_lamp_power(this);
-            set_transmission_lamp_power(this,1)
-            set_transmission_lamp_shutter_state(this,0)
-            set_transmission_lamp_voltage(this,6)
-            set_transmission_lamp_shutter_state(this,1)
+            currentState = get_tranmission_lamp_power(this);
+            set_tranmission_lamp_power(this,1)
+            set_tranmission_lamp_shutter_state(this,0)
+            set_tranmission_lamp_voltage(this,6)
+            set_tranmission_lamp_shutter_state(this,1)
             pause(1)
-            set_transmission_lamp_shutter_state(this,0)
+            set_tranmission_lamp_shutter_state(this,0)
             pause(1)
-            set_transmission_lamp_shutter_state(this,1)
+            set_tranmission_lamp_shutter_state(this,1)
             pause(1)
-            set_transmission_lamp_shutter_state(this,0)
-            set_transmission_lamp_power(this,currentState)
+            set_tranmission_lamp_shutter_state(this,0)
+            set_tranmission_lamp_power(this,currentState)
             
             %test objective stage
             set_objective_stage_z_position_micron(this,1)
@@ -1194,20 +845,17 @@ classdef classMicroManagerWrapper < handle
         end %fun
         
         function scan_and_lock_into_auto_focus(this)
-            zmin = 4000; %[µm]
+            zmin = this.StageMinLimit; %[µm]
             dz = 250; %[µm]
-            zmax = this.StageMaxLimit - 0.9*get_auto_focus_search_range(this); %[µm]
-            
-            z = zmin;
+            zmax = this.StageMaxLimit; %[µm]
             
             %initialize search at lowest safe position
-            set_objective_stage_z_position_micron(this,z)
+            set_objective_stage_z_position_micron(this,zmin)
             while (get_auto_focus_state(this) == false) && ...
-                    get_objective_stage_z_position(this) < zmax
-                %move objective towards coverslip z µm
-                z = min(zmax,z+dz);
-                set_objective_stage_z_position_micron(this,z);
-                
+                    get_objective_stage_z_position_micron(this) < zmax
+                %move objective towards coverslip by dz µm
+                set_objective_stage_z_position_micron(this,...
+                    get_objective_stage_z_position_micron(this) + dz);
                 %perform search for autofocus
                 set_auto_focus_state(this,1)
                 %wait some seconds so the autofocus can stabilize
@@ -1218,84 +866,67 @@ classdef classMicroManagerWrapper < handle
                 fprintf('\nAuto-Focus not detectable!\n')
             else
                 fprintf('\nAuto-Focus established at %.2f µm\n',...
-                    get_objective_stage_z_position(this))
+                    get_objective_stage_z_position_micron(this))
             end %if
-        end %fun
-        function [img,meta] = adjust_auto_focus_offset_lens(this,laser)
-            z0 = 0;
-            dz = 50;
-            zmax = 1000;
-            offset = z0:dz:zmax;
-            
-            hImg = [];
-            for i = 1:numel(offset)
-                set_auto_focus_offset(this,offset(i))
-                [img(:,:,i),meta(i,1)] = snap_img_fluorescence(this,laser);
-                
-                [hImg,~,hFig] = classMicroManagerWrapper.live_acquisition(img{idxPos,1},hImg);
-                %                 img = snap_img(objMicMan);
-                % imagesc(img(512:1024,512:1024))
-                %             colorbar
-                %             axis image
-                %             colormap gray
-                %                 imgCorr = ...
-                %                     img_norm_circ_auto_corr(double(img(512:1024,512:1024)));
-                %                 [RCF,r] = img_radial_avg_corr(imgCorr(1:rMax,1:rMax));
-                %% approximate start parameters
-                %     [guessOffset,idxMin] = min(RCF);
-                %     RCF_ = RCF;
-                %     r_ = r;
-                %     r_([1 idxMin]) = []; RCF_([1 idxMin]) = [];
-                %     RCF_ = log((RCF_-guessOffset)/(max(RCF_)-guessOffset));
-                %     m = OLS_fit_linear(-r_.^2,RCF_,0);
-                %     guessStd = 1/sqrt(2*m);
-                %     guessVolume = (RCF(2)-guessOffset)*sqrt(2*pi)*guessStd;
-                %     thetaGuess = [guessVolume,guessStd,guessOffset];
-                %%
-                %             [thetaEst(i,:)] = ...
-                %             OLS_fit_1dim_gaussian(r(2:end),RCF(2:end),thetaGuess,...
-                %             'lb',[0 0 0],'ub',[100*guessVolume rMax 1],...
-                %             'TolFun',10^-15);
-                %%
-                %         plot(r(2:end),RCF(2:end),'color',cmap(i,:));
-                %                 plot(offset(i),var(RCF(2:end)),'x','color',cmap(i,:));
-                %                 set_auto_focus_offset(objMicMan,offset(i))
-            end %for
-            close(hFig)
-            %             set_laser_state(objMicMan.Laser,561,0);
         end %fun
         
-        function imgStack = piezo_relative_z_scan(this, rZ, dz)
-            z0 = get_piezo_z_position(this);
-            
-            if z0 - rZ < this.PiezoMinLimit || z0 + rZ > this.PiezoMaxLimit
-                fprintf('\nError: Cannot scan whole z-range.\nAdjust absolute piezo z-position\n')
-                imgStack = [];
-                return
-            end %if
-            
-            z = (z0-rZ):dz:(z0+rZ);
-            imgStack = piezo_absolute_z_scan (this,z);
-        end %fun
-        function imgStack = piezo_absolute_z_scan(this, z)
-            %deactivate auto-focus in case
-            if (get_auto_focus_state(this) == true)
-                set_auto_focus_state(this,0)
-            end %if
-            
-            for i = 1:numel(z)
-                set_piezo_z_position_micron(this,z(i))
-                imgStack(:,:,i) = snap_img(this);
-            end
-        end %fun
         
-        %%
-        function [img,meta] = scan_TIRF_angle(this,fiber,range)
+        function scan_TIRF_angle(this,fiber,range)
+            filename = strcat(datestr(now, 'yymmdd_HHMMSS'),'.tif');
+            metadata = create_minimal_OME_XML_metadata(...
+                [this.CoreAPI.getImageWidth(),this.CoreAPI.getImageHeight(),numel(range) 1 1], ...
+                'uint16','dimensionOrder','XYTCZ');
+            objImgWriter = bfsave_initialize(filename,metadata,'BigTiff', true);
+            
             for i = 1:numel(range)
                 set_fiber_position(this.TIRF,fiber,range(i))
-                pause(0.2)
-                [img(:,:,i),meta(i,1)] = snap_img_fluorescence(this,fiber);
+                pause(0.5)
+                img = get_actual_image(this);
+                imagesc(img);axis image;colormap gray;drawnow
+                bfsave_append_plane(objImgWriter,uint16(img),i)
             end
+            objImgWriter.close();
+        end %fun
+        
+        function cycle_through_laser_lines(this)
+            for i = 1:100
+                set_laser_power(this.Laser,640,50)
+                set_laser_state(this.Laser,640,1)
+                img = get_actual_image(this);
+                imagesc(img(195:832,193:830));axis image;colormap gray;drawnow
+                set_laser_state(this.Laser,640,0)
+                
+                set_laser_power(this.Laser,561,50)
+                set_laser_state(this.Laser,561,1)
+                img = get_actual_image(this);
+                imagesc(img(195:832,193:830));axis image;colormap gray;drawnow
+                set_laser_state(this.Laser,561,0)
+                
+                set_laser_power(this.Laser,488,50)
+                set_laser_state(this.Laser,488,1)
+                img = get_actual_image(this);
+                imagesc(img(195:832,193:830));axis image;colormap gray;drawnow
+                set_laser_state(this.Laser,488,0)
+            end
+        end %fun
+        function optimize_exposure(this,mode)
+            actExpTime = get_exposure_time(this);
+            img = get_actual_image(this);
+            
+            switch mode
+                case {'max','Max'}
+                    pxMax = max(max(medfilt2(img,[2 2]))); %to ignore hot pixels (sCMOS)
+                    if pxMax == this.PxSatThresh %-> reduce exposure time
+                        %get reduction factor for pixel saturation
+                        pxSatExpRedFac = min(0.9,this.PxSatExpRedFac); %at least <90% of actual exposure
+                        set_exposure_time(this,actExpTime*pxSatExpRedFac)
+                    else %-> increase exposure time
+                        facSaturation = this.PxSatThresh/pxMax;
+                        facExpTimeInc = 0.5*facSaturation;
+                        set_exposure_time(this,min(2000,actExpTime*facExpTimeInc))
+                        fprintf('Exposure Time set to: %.3fms\n',get_exposure_time(this))
+                    end %if
+            end %switch
         end %fun
         
         function R = set_stage_path(this,dx,dy,r)
@@ -1313,6 +944,77 @@ classdef classMicroManagerWrapper < handle
             Y(dr>r) = nan;
             R = [X(:) Y(:)];
             R(isnan(R(:,1)),:) = [];
+        end
+        
+        function scan_coverslip(this, stage_path)
+            %             set_tranmission_lamp_power(this,1)
+            %             set_tranmission_lamp_shutter_state(this,1)
+            %             set_light_path_state(this,1)
+            %
+            %             set_pixel_binning(this,2)
+            %             set_exposure_time(this,100)
+            
+            %             set_xy_pos_micron(this,this.XYStageCtr)
+            %
+            %             filename = strcat(datestr(now, 'yymmdd_HHMMSS'),'.tif');
+            %
+            %             metadata = create_minimal_OME_XML_metadata(...
+            %                 [634,634,size(stage_path,1) 1 1], ...
+            %                 'uint16','dimensionOrder','XYTCZ');
+            %             objImgWriter = bfsave_initialize(filename,metadata,'BigTiff', true);
+            %
+            %             for i = 1:size(stage_path,1)
+            %                 set_xy_pos_micron(this,stage_path(i,:))
+            %                 pause(0.1)
+            %                 img = get_actual_image(this);
+            %                 imagesc(img);axis image;colormap gray;drawnow
+            %                 bfsave_append_plane(objImgWriter,uint16(img),i)
+            %             end
+            %             objImgWriter.close();
+            %             set_xy_pos_micron(this,this.XYStageCtr)
+            
+            set_xy_pos_micron(this,this.XYStageCtr)
+            
+            filename1 = strcat(datestr(now, 'yymmdd_HHMMSS'),'_DIC.tif');
+            filename2 = strcat(datestr(now, 'yymmdd_HHMMSS'),'_Fluor.tif');
+            
+            metadata = create_minimal_OME_XML_metadata(...
+                [634,634,size(stage_path,1) 1 1], ...
+                'uint16','dimensionOrder','XYTCZ');
+            objImgWriter1 = bfsave_initialize(filename1,metadata,'BigTiff', true);
+            objImgWriter2 = bfsave_initialize(filename2,metadata,'BigTiff', true);
+            
+            for i = 1:size(stage_path,1)
+                set_xy_pos_micron(this,stage_path(i,:))
+                pause(0.1)
+                
+                %set revolver to DIC
+                set_filter_revolver_position(this,5)
+                %open lamp shutter
+                set_tranmission_lamp_shutter_state(this,1)
+                %read camera
+                img_DIC = get_actual_image(this);
+                set_tranmission_lamp_shutter_state(this,0)
+                
+                
+                %take fluorescent picture
+                %set revolver to fluorescent
+                set_filter_revolver_position(this,0)
+                %switch laser on
+                set_laser_state(this.Laser,640,1);
+                %read camera
+                img_FL = get_actual_image(this);
+                %switch laser off
+                set_laser_state(this.Laser,640,0);
+                
+                
+                imagesc(img_DIC);axis image;colormap gray;drawnow
+                
+                bfsave_append_plane(objImgWriter1,uint16(img_DIC),i)
+                bfsave_append_plane(objImgWriter2,uint16(img_FL),i)
+            end
+            objImgWriter.close();
+            set_xy_pos_micron(this,this.XYStageCtr)
         end
         
         function [defocusPsfEst,defocusPsfEstSE] = calibrate_z_PSF(this,z0,dz,z1)
@@ -1340,7 +1042,7 @@ classdef classMicroManagerWrapper < handle
         function img = scan_z_PSF_determ(this, z)
             for i = 1:numel(z)
                 set_piezo_z_position_micron(this,z(i))
-                img(:,:,i) = snap_img(this);
+                img(:,:,i) = get_actual_image(this);
             end
         end
         
@@ -1359,13 +1061,13 @@ classdef classMicroManagerWrapper < handle
                 
                 set_exposure_time(this,100)
                 set_laser_state(this.Laser, 561, 1);
-                img_FL = snap_img(this);
+                img_FL = get_actual_image(this);
                 set_laser_state(this.Laser, 561, 0);
                 
                 set_exposure_time(this,20)
-                set_transmission_lamp_shutter_state(this, 1);
-                img_DIC = snap_img(this);
-                set_transmission_lamp_shutter_state(this, 0);
+                set_tranmission_lamp_shutter_state(this, 1);
+                img_DIC = get_actual_image(this);
+                set_tranmission_lamp_shutter_state(this, 0);
                 
                 bfsave_append_plane(objImgWriter1,uint16(img_DIC),i)
                 bfsave_append_plane(objImgWriter2,uint16(img_FL),i)
@@ -1373,163 +1075,11 @@ classdef classMicroManagerWrapper < handle
             objImgWriter1.close();
             objImgWriter2.close();
         end %fun
-        function optimize_exposure(this,mode)
-            actExpTime = get_exposure_time(this);
-            img = snap_img(this);
-            
-            switch mode
-                case {'max','Max'}
-                    pxMax = max(max(medfilt2(img,[2 2]))); %to ignore hot pixels (sCMOS)
-                    if pxMax == this.PxSatThresh %-> reduce exposure time
-                        %get reduction factor for pixel saturation
-                        pxSatExpRedFac = min(0.9,this.PxSatExpRedFac); %at least <90% of actual exposure
-                        set_exposure_time(this,actExpTime*pxSatExpRedFac)
-                    else %-> increase exposure time
-                        facSaturation = this.PxSatThresh/pxMax;
-                        facExpTimeInc = 0.5*facSaturation;
-                        set_exposure_time(this,min(2000,actExpTime*facExpTimeInc))
-                        fprintf('Exposure Time set to: %.3fms\n',get_exposure_time(this))
-                    end %if
-            end %switch
-        end %fun
         
-        %% visualization
-        function show_acquisition(this)
-            img = snap_img(this);
-            imagesc(img)
-            colorbar
-            axis image
-        end %fun
-        function toggle_gui_live_mode(this,state)
-            if nargin == 1 %toggle
-                switch gui_live_mode(this)
-                    case 0 %-> turn on
-                        this.GuiAPI.enableLiveMode(true)
-                    case 1 %-> turn off
-                        this.GuiAPI.enableLiveMode(false)
-                end %switch
-            else
-                switch state
-                    case 0 %-> turn off
-                        this.GuiAPI.enableLiveMode(false)
-                    case 1 %-> turn on
-                        this.GuiAPI.enableLiveMode(true)
-                    otherwise
-                        %error
-                        return
-                end %switch
-            end %if
-        end %fun
-        
-        % live view + manual adjustments
-        function live_view(this)
-            ROI = get_camera_ROI(this);
-            
-            hFig = figure; hold on;
-            hImg = imagesc(zeros(ROI(4),ROI(3)));
-            axis image ij
-            colormap gray
-            
-            while ishandle(hFig)
-                img = snap_img(this);
-                set(hImg,'cdata',img)
-                caxis(quantile(img(:),[0.01 0.999]))
-                drawnow
-            end %for
-        end %fun
-        
-        %
-        function live_auto_focus_offset_adjustment(this)
-            ROI = get_camera_ROI(this);
-            
-            hFig = figure; hold on;
-            hImg = imagesc(zeros(ROI(4),ROI(3)));
-            axis image ij
-            colormap gray
-            
-            hSlider = uicontrol(...
-                'parent'  , hFig,...
-                'units'   , 'normalized',...
-                'style'   , 'slider',...
-                'position', [0 0 1 0.05],...
-                'min'     , this.AutoFocusOffsetMinLimit,...
-                'max'     , this.AutoFocusOffsetMaxLimit,...
-                'value'   , get_auto_focus_offset(this),...
-                'callback', @(src,evnt)sliderCallback(this,src));
-            handle.listener(hSlider,'ActionEvent',@(src,evnt)sliderCallback(this,src));
-            
-            while ishandle(hFig)
-                img = snap_img(this);
-                set(hImg,'cdata',img)
-                caxis(quantile(img(:),[0.01 0.999]))
-                drawnow
-            end %for
-        end %fun
-        function sliderCallback(this,src)
-            offset = get(src,'Value');
-            set_auto_focus_offset(this,offset)
-        end
-        
-        function listCoordXY = select_cells_from_overview(this,imgScan,ROI)
-            [imgWidth,imgHeight,~] = size(imgScan);
-            
-            hFig = figure;
-            hAx = axes('Parent',hFig);
-            image('XData',[1 imgWidth],'YData',[1 imgHeight],'CData',imgScan);
-            axis image
-            colormap(gray)
-            
-            %%
-            cnt = 0;
-            repeat = true;
-            while repeat
-                %zoom
-                figure(hFig)
-                %     jGuess = nan; iGuess = nan;
-                %     iLimit = get(gca,'ylim');
-                %     jLimit = get(gca,'xlim');
-                %     while not(iGuess > iLimit(1)-0.5 && iGuess < iLimit(2)-0.5 && ...
-                %             jGuess > jLimit(1)-0.5 && jGuess < jLimit(2)-0.5)
-                [jGuess,iGuess] = ginput(1);
-                %     end %while
-                axis([jGuess-ROI(3)/2,jGuess+ROI(3)/2,iGuess-ROI(4)/2,iGuess+ROI(4)/2])
-                
-                [jGuess,iGuess] = ginput(1);
-                answer = questdlg('Accept Cell?','','Yes','No','Yes');
-                switch answer
-                    case 'Yes'
-                        cnt = cnt + 1;
-                        listCoordXY(cnt,:) = [jGuess iGuess]; %[px]
-                        
-                        %             line(jGuess,iGuess,'color','r','marker','o','Parent',hAx)
-                        text(jGuess+15,iGuess+15,num2str(cnt,'%d'),...
-                            'color','r','Parent',hAx)
-                    case 'No'
-                end %switch
-                %     caxis(satLimFull)
-                axis([0.5,imgWidth+0.5,0.5,imgHeight+0.5])
-                %     close(hFigFit); close(hFigRes);
-                
-                answer = questdlg('Additional Cell?','','Yes','No','Yes');
-                switch answer
-                    case 'Yes'
-                        repeat = true;
-                    case 'No'
-                        repeat = false;
-                end %switch
-            end %while
-            
-            %% convert to stage coordinates
-            pxSize = get_img_px_size(this); %[µm]
-            xyStageCtr = get_central_xy_pos(this);
-            listCoordXY = [(listCoordXY(:,1)-imgWidth/2-0.5)*pxSize+xyStageCtr(1), ...
-                (listCoordXY(:,2)-imgHeight/2-0.5)*pxSize+xyStageCtr(2)];
-        end %fun
     end %methods
     %% image classification methods
     methods
         function scled_img = scale_input(this, inp_img)
-            inp_img = im2double(inp_img);
             scled_img = inp_img - min(min(inp_img));
             scled_img = scled_img./max(max(scled_img));
         end
@@ -1557,6 +1107,14 @@ classdef classMicroManagerWrapper < handle
             
         end
         % fluorescence channel evaluation
+        function assess_image_variance(this, img)
+            % this function checks image variance in order to skip further
+            % assessment of images that contain no fluorescence pattern
+            img_var = var(img(:));
+            if(img_var < 30)
+                this.LocationClassifier = -1;
+            end
+        end
         function [thetaD, centroyd] = seek_pattern_orientation(this, img)
             
             this.LocationClassifier = 0;
@@ -1587,7 +1145,7 @@ classdef classMicroManagerWrapper < handle
             cc = bwconncomp(bw_F);
             s = regionprops(cc, 'Area', 'Orientation', 'MajorAxisLength',...
                 'MinorAxisLength', 'Eccentricity', 'Centroid');
-            s( [s.Area] < 1000 ) = [];
+            s( [s.Area] < 500 ) = [];
             s( [s.MinorAxisLength] > 80 ) = [];
             if(~isempty(s))
                 thetaD = s(cell2mat({s.MajorAxisLength}) == ...
@@ -1679,7 +1237,7 @@ classdef classMicroManagerWrapper < handle
                 intVals_cell{i} = tempVals;
                 intVals = [intVals, tempVals];
             end
-            thresh = multithresh(intVals(intVals~=0));
+            thresh = graythresh(intVals(intVals~=0));
         end
         function [abvThresh, belThresh] =...
                 classify_pts(this, thresh, intVals_cell, linez)
@@ -1701,13 +1259,11 @@ classdef classMicroManagerWrapper < handle
                 belThresh_inds = find(intVals <= thresh);
                 abvThresh{i} = temp_pts(abvThresh_inds, :);
                 belThresh{i} = temp_pts(belThresh_inds, :);
-                if(~isempty(abvThresh_inds))
-                    temp = abvThresh{i};
-                    strtPt = temp(1,:);
-                    endPt = temp(end,:);
-                    abvLength(i) = round(sqrt( (strtPt(1) - endPt(1))^2 + ...
-                        (strtPt(2) - endPt(2)^2)));
-                end
+                temp = abvThresh{i};
+                strtPt = temp(1,:);
+                endPt = temp(end,:);
+                abvLength(i) = round(sqrt( (strtPt(1) - endPt(1))^2 + ...
+                    (strtPt(2) - endPt(2)^2)));
                 
             end
             
@@ -1789,15 +1345,14 @@ classdef classMicroManagerWrapper < handle
                 line_rtd = unique(round(line_rtd), 'rows');
                 linez_roted_temp{i} = line_rtd;
                 
-                if(i > 1 && ~isempty(linez_roted_temp{i-1}) &&...
-                        ~isempty(line_rtd))
+                if(i > 1)
                     curr_line = line_rtd;
                     last_line = linez_roted_temp{i-1};
                     diffX = abs(curr_line(1,1) - last_line(1,1));
                 end
                 
                 if(i > 1 && ~isempty(linez_roted_temp{i - 1}) &&...
-                        exist('diffX') && diffX < 20)
+                        diffX < 20)
                     sprintf('here and i = %d/n',i);
                     
                     xUpd = (curr_line(1,1) + last_line(1,1)) / 2;
@@ -1924,7 +1479,7 @@ classdef classMicroManagerWrapper < handle
                     inds2low = [inds2low; temp];
                 end
                 img_bw(inds2low) = 0;
-                figure, imshow(img_bw)
+                %                 figure, imshow(img_bw)
                 
                 [y, x] = find(img_bw == 1);
                 threshX = mean(x);
@@ -1939,13 +1494,14 @@ classdef classMicroManagerWrapper < handle
                 
                 strWidths(i) = rightIndx(i) - leftIndx(i);
                 
-                figure, imshow(img{i}), title('image with border plotted')
-                
                 if(strWidths(i) < min(strBnds) ||...
                         strWidths(i) > max(strBnds))
-                    break;
+                    figure, imshow(img{i}), title('pattern no good')
+                    sprintf('entered if statement')
+                    continue
                     
                 end
+                figure, imshow(img{i}), title('image with border plotted')
                 yvec = ymin:ymax;
                 xVecL = repmat(leftIndx(i), 1, length(yvec));
                 xVecR = repmat(rightIndx(i), 1, length(yvec));
@@ -2036,18 +1592,51 @@ classdef classMicroManagerWrapper < handle
             imgOutScld = imgOutScld/max(max(imgOutScld));
             
         end
+        
         function [imgOut, imgOutScld] =...
                 bandpassFFT(this, img, lowrbound, uprbound, deltax, deltay)
             % this function uses the functions lowpassFFT and highpassFFT in
             % order to produce a bandpass filter by subtracting the lowpass
             % and highpass images from the original image
             
-            hpIMG = highpassFFT(this, img, lowrbound, deltax, deltay);
-            lpIMG = lowpassFFT(this, img, uprbound, deltax, deltay);
+            %          hpIMG = highpassFFT(this, img, lowrbound, deltax, deltay);
+            %          lpIMG = lowpassFFT(this, img, uprbound, deltax, deltay);
             
-            imgOut = img - lpIMG - hpIMG;
-            imgOutScld = imgOut - min(min(imgOut));
-            imgOutScld = imgOutScld./max(max(imgOutScld));
+            %          imgOut = img - lpIMG - hpIMG;
+            %          imgOutScld = imgOut - min(min(imgOut));
+            %          imgOutScld = imgOutScld./max(max(imgOutScld));
+            
+            M = size(img,2);
+            N = size(img,1);
+            
+            kx1 = mod( 1/2 + (0:(M-1))/M , 1 ) -1/2;
+            kx = kx1*(2*pi/deltax);
+            ky1 = mod( 1/2 + (0:(N-1))/N , 1 ) -1/2;
+            ky = ky1*(2*pi/deltay);
+            
+            [KX, KY] = meshgrid(kx, ky);
+            
+            k0 = sqrt(uprbound^2*(deltax^-2+deltay^-2)); % filter set to
+            % filter out frequency values above this magnitude
+            
+            bnd1 = double(KX.*KX+KY.*KY < k0^2);
+            
+            kx1 = mod( 1/2 + (0:(M-1))/M , 1 ) - 1/2;
+            kx = kx1*(2*pi/deltax);
+            ky1 = mod( 1/2 + (0:(N-1))/N , 1 ) - 1/2;
+            ky = ky1*(2*pi/deltay);
+            
+            [KX, KY] = meshgrid(kx, ky);
+            
+            k0 = sqrt(lowrbound^2*(deltax^-2+deltay^-2)); % filter set to
+            % filter out frequency values above this magnitude
+            
+            bnd2 = double(KX.*KX+KY.*KY > k0^2);
+            
+                       
+            
+            
+            
         end
         function img_sm = smooth_img_DIC_20x(this, img, wind)
             % function currently used to smooth image with no flexibility.
@@ -2177,7 +1766,6 @@ classdef classMicroManagerWrapper < handle
             end
         end
     end % methods
-    
     %%
     methods (Static)
         function MMsetup_javaclasspath(path2MM)
@@ -2206,79 +1794,6 @@ classdef classMicroManagerWrapper < handle
                     fileList = vertcat(fileList, getAllFiles(nextDir));  % Recursively call getAllFiles
                 end
             end %fun
-        end %fun
-        function coordinates = set_figure_position(ratio, factor, position)
-            %written by
-            %C.P.Richter
-            %Division of Biophysics / Group J.Piehler
-            %University of Osnabrueck
-            
-            scrSize = get(0, 'ScreenSize');
-            scrRatio = scrSize(3)/scrSize(4);
-            
-            if  ratio == scrRatio
-                figWidth = factor*scrSize(3);
-                figHeight = factor*scrSize(4);
-            else %height limited
-                figWidth = factor*scrSize(3)*ratio/scrRatio;
-                figHeight = factor*scrSize(4);
-                if figWidth > scrSize(3) %width limited
-                    figWidth = factor*scrSize(3);
-                    figHeight = factor*scrSize(4)/ratio*scrRatio;
-                end %if
-            end %if
-            
-            switch position
-                case 'north-west'
-                    coordinates = [1 scrSize(4)-figHeight figWidth figHeight];
-                case 'north-east'
-                    coordinates = [scrSize(3)-figWidth scrSize(4)-figHeight figWidth figHeight];
-                case 'south-east'
-                    coordinates = [scrSize(3)-figWidth 1 figWidth figHeight];
-                case 'south-west'
-                    coordinates = [1 1 figWidth figHeight];
-                case 'center'
-                    coordinates = [0.5*(scrSize(3)-figWidth) 0.5*(scrSize(4)-figHeight) figWidth figHeight];
-            end %switch
-        end %fun
-        function [hImg,hAx,hFig] = init_acq_vis(img)
-            [imgHeight,imgWidth] = size(img);
-            figPos = classMicroManagerWrapper.set_figure_position(imgWidth/imgHeight, 0.5, 'south-east');
-            
-            hFig = figure(...
-                'Units','pixels',...
-                'Position',figPos,...
-                'Color',[0 0 0]);
-            hAx = axes(...
-                'Parent', hFig,...
-                'Units','normalized',...
-                'Position', [0 0 1 1],...
-                'XTickLabel','',...
-                'YTickLabel','',...
-                'NextPlot','add',...
-                'Box','on');
-            hImg = imagesc(img,'Parent',hAx);
-            axis(hAx,'image','ij')
-            colormap gray
-        end %fun
-        function [hImg,hAx,hFig] = live_acquisition(img,hImg)
-            if isempty(hImg)
-                [hImg,hAx,hFig] = classMicroManagerWrapper.init_acq_vis(img);
-            else
-                hAx = [];
-                hFig = [];
-                set(hImg,'cdata',img);
-                ampLim = quantile(img(:),[0.01 0.99]);
-                caxis(ampLim);
-                title(ampLim)
-            end %if
-        end %fun
-        
-        function p = DIC_pooled_bias_est(imgStack)
-            for idxFrame = 1:numel(imgStack)
-                p(:,idxFrame) = DIC_estimate_bias(imgStack{idxFrame});
-            end %for
-            p = median(p,2);
         end %fun
     end %methods
 end %classdef
