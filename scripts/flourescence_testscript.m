@@ -1,10 +1,15 @@
 clear
-parent_dirstr = 'T:\Marino\Microscopy\Strip Pattern\from Sara\';
-img_dirs = dir( 'T:\Marino\Microscopy\Strip Pattern\from Sara\2013*' );
+% lab path
+% parent_dirstr = 'T:\Marino\Microscopy\Strip Pattern\from Sara\';
+% img_dirs = dir( 'T:\Marino\Microscopy\Strip Pattern\from Sara\2013*' );
+% home path
+parent_dirstr = 'D:\OS_Biophysik\Microscopy\Strip Pattern\from Sara\';
+img_dirs = dir( 'D:\OS_Biophysik\Microscopy\Strip Pattern\from Sara\2013*' );
+
 img_dirstr = cell(length(img_dirs),1);
 img_dir_cell = cell(length(img_dirs),1);
-% % could use to separate images by frequency of stimulation
-freq_opts = {'405', '488', '561', 'dic'};
+% % could use to separate images by5 frequency of stimulation
+% freq_opts = {'405', '488', '561', 'dic'};
 % img_paths_cell = cell(length(freq_opts), 1);
 
 
@@ -18,18 +23,15 @@ for i = 1:length(img_dirs)
         key = 'cell';
         idx = strfind(temp_name, key);
         temp_dir(j).cell_idx = sscanf(temp_name(idx(1) + length(key):end), '%g', 1);
-        for k = 1:length(freq_opts)
-            if( ~isempty( strfind(temp_dir(j).name, freq_opts{k}) ) )
-                temp_dir(j).freq = freq_opts{k};
-                continue
-            end
-            
-        end
+        temp_dir(j).freq = sscanf(temp_name(idx(1) + length(key)+2:end), '%g', 1);
         temp_dir(j).img = imread( strcat(temp_dir(j).folder, '\',...
             temp_dir(j).name) );
     end
     
     cell_idx_list = sort( unique( [temp_dir(:).cell_idx] ) );
+    freq_opts = unique( )
+    
+    
     temp_struct = struct('directory', [], 'cell_idx', [], 'imDIC', [],...
     'im405', [], 'im488', [], 'im561', []);
     temp_struct.directory = temp_dir(1).folder;
@@ -58,23 +60,6 @@ for i = 1:length(img_dirs)
     img_structs(i) = temp_struct;
 end
 clear temp* i j k img_dirstr key idx img_dirs
-
-% % loop for separating images by frequency of stimulation
-% for i = 1:length(img_dir_cell)
-%     temp_dir = img_dir_cell{i};
-%
-%     for j = 1:length(temp_dir)
-%         for k = 1:length(freq_opts)
-%             if( ~isempty( strfind(temp_dir(j).name, freq_opts{k}) ) )
-%                 temp_idx = k;
-%                 continue
-%             end
-%         end
-%         img_paths_cell{temp_idx} = [img_paths_cell{temp_idx};...
-%             {strcat( temp_dir(j).folder, '\', temp_dir(j).name )}];
-%     end
-% end
-% clear temp* i j k
 
 
 
