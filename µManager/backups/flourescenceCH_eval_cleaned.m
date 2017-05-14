@@ -14,42 +14,20 @@ timeMat = zeros(numel(filenames));
 for i=1:numel(filenames)
     
     img = im2double(imread(strcat( dir_str, filenames{i} )));
-%     img = img-min(min(img));
-%     img = img/max(max(img));
-    dims = size(img);
+%     dims = size(img);
     
-%     img_resh = reshape(img, [1 dims(1)*dims(2)]);
-    
-    % lets try some thresholding
-    
-    
-%     img_doub = im2double(img);   
-    
-%     tic
     threshInt = multithresh(img,2);
     
-%     img_sg1 = img;
-%     img_sg1(img<max(threshInt)) = 0;
-%     img_sg2 = img;
-%     img_sg2(img < min(threshInt)) = 0;
-%     img_sg2(img >= max(threshInt)) = 1;
     imgbw = im2bw(img,max(threshInt));
     figure(1), subplot(1,2,1), imshow(imgbw);
-    
-    % separate image into thresholded and not thresholded
 
-    
-%     img_nz = img-img_sg1;
-%     img_sg1F = medfilt2(img_sg1, [3 3]);
-%     img_sg2F = medfilt2(img_sg2, [3 3]);
-    
     
     imgbw = medfilt2(imgbw, [3 3]);
     figure(1), subplot(1,2,2), imshow(imgbw);
     
     % linear structure elements used for dilation
-    se90 = strel('line', 3, 90);
-    se0 = strel('line', 3, 0);
+    se90 = strel('line', 5, 90);
+    se0 = strel('line', 5, 0);
     % diamond shape used for erosion to compensate for original dilation
     seD = strel('diamond',1);
     
@@ -72,8 +50,6 @@ for i=1:numel(filenames)
         
     k = find(cell2mat({s.MajorAxisLength})==max(cell2mat({s.MajorAxisLength})));
     
-    timeMat(i) = toc;    
-%     sprintf('time = %d', timeMat(i))
     
     flsPos = find(cell2mat({s.Area})<1000);
     
@@ -111,7 +87,7 @@ for i=1:numel(filenames)
     hold on
     plot(x, y, 'r', 'LineWidth', 2)
 
-    figure(2), imshow(img), title('Original Image')
+    figure(2), imshow(img, []), title('Original Image')
    
     % this completes orientation determination ************************
     
@@ -125,13 +101,6 @@ for i=1:numel(filenames)
     % this was a try to do without convolution, which takes too much time,
     % but the pattern matrix must be the same size. A more efficient
     % algorithm should be explored once the conv approach is demonstrated
-%     img_Four = fft2(img);
-%     patt_Four = fft2(pattern_rotd);
-%     
-%     prod_Four = img_Four.*patt_Four;
-%     
-%     corr_res = ifft2(prod_Four);
-%     figure, imshow(corr_res);
 
     img_corr = conv2(img, pattern_rotd, 'same');
     
@@ -198,11 +167,6 @@ for i=1:numel(filenames)
                                 aveMax, aveMin);
                                     
     disp(outStr1), disp(outStr2)
-    imtool(img)
-    
-    % alright let's figure out how to determine a line along the
-    % maximum intensity value of the stripe
-    
     slop = -tand(thetaD);
     
     b = centerY-slop.*s(k).Centroid(1);
