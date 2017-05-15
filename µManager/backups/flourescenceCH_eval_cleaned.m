@@ -149,7 +149,7 @@ for i=1:numel(filenames)
     if(sign(thetaD)>0)
         phiD = thetaD*pi/180;
     else
-        phiD = (90+thetaD)*pi/180;
+        phiD = (180+thetaD)*pi/180;
     end
     
     distsMaxes = diff(indX_down)*sin(phiD);

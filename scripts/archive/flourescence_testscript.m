@@ -97,7 +97,7 @@ x0 = [1,0,50,0,50,0];
 lb = [0,-dim/2,0,-dim/2,0,-pi/4];
 ub = [realmax('double'),dim/2,(dim/2)^2,dim/2,(dim/2)^2];
 
-for i = 1:size( img_stack, 2 )
+for i = 2:size( img_stack, 2 )
     
     [bw_stack(:,:,i), bwconv_stack(:,:,i)] =...
         threshold_flour_img( im2double(img_stack(:,:,i)), 250 );
@@ -106,13 +106,49 @@ for i = 1:size( img_stack, 2 )
     subplot(1,2,1), imshow( img_stack(:,:,i), [] );
     subplot(1,2,2), imshow( bw_stack(:,:,i));
     
+%     temp_bw = bw_stack(:,:,i); temp_img = img_stack(:,:,i);
+%     
+%     [X,Y] = meshgrid(-dim/2+.5:dim/2-.5);
+%     
+%     X = X(:); Y = Y(:); temp_bw = temp_bw(:); Z = im2double(temp_img(:));
+%     
+%     X(temp_bw==0) = [];
+%     Y(temp_bw==0) = [];
+%     Z(temp_bw==0) = [];
+%     xdata(:,1) = X;
+%     xdata(:,2) = Y;
+    
+    % can be used to correct image
+%     [x,resnorm,residual,exitflag] = lsqcurvefit(@D2GaussFunction,x0,xdata,Z,lb,ub);
     [x,resnorm,residual,exitflag] =...
                      fit_gaussian_flour(img_stack(:,:,i), bw_stack(:,:,i));
+    
+    cc = bwconncomp(bwconv_stack(:,:,i));
+    
+    s = regionprops(cc, 'Area', 'Orientation', 'MajorAxisLength',...
+            'MinorAxisLength', 'Eccentricity', 'Centroid');
+    k = find(cell2mat({s.MajorAxisLength})==max(cell2mat({s.MajorAxisLength})));
+    
+    phi = linspace(0, 2*pi, 50);
+    cosphi = cos(phi);
+    sinphi = sin(phi);
+    
+    xbar = s(k).Centroid(1);
+    ybar = s(k).Centroid(2);
 
-    [thetaD, pattern, img_corr] = est_pattern_orientation(img_stack(:,:,i), bw_stack(:,:,i));
+    a = s(k).MajorAxisLength/2;
+    b = s(k).MinorAxisLength/2;
+    
+    thetaD = s(k).Orientation;
+    
+    pattern_temp = floures_pattern_gen(25, 30, size(img_stack(:,:,i)), 1);
+    pattern_rotd = imrotate(pattern_temp, -(90-thetaD));
+   
+    figure(2), imshow(pattern_rotd);
+    
+    img_corr = conv2(img_stack(:,:,i), pattern_rotd, 'same');
     
     figure(4), mesh(img_corr);
-    
-    
-    
+   
+    clear X Y xdata a b cc xbar ybar phi cosphi sinphi thetaD
 end
