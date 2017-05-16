@@ -15,7 +15,7 @@ thetaD = s(k).Orientation;
 pattern = floures_pattern_gen(25, 30, size(bw_img), 1);
 pattern = imrotate(pattern, -(90-thetaD));
 
-img_corr = conv2(img, pattern, 'same');
+img_corr = conv2( double(img), double(pattern), 'same');
 
 
 end

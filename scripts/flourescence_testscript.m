@@ -13,7 +13,9 @@ img_dirstr = cell(length(img_dirs),1);
 img_dir_cell = cell(length(img_dirs),1);
 img_structs = cell(length(img_dirs),1);
 img_stack = [];
-freq_vec = [];
+freqs_vec = [];
+freqs_cell = [];
+temp_vec = [];
 
 for i = 1:length(img_dirs)
     img_dirstr{i} = strcat( parent_dirstr, img_dirs(i).name);
@@ -72,14 +74,19 @@ for i = 1:length(img_dirs)
             
             temp_field = strcat( 'im', temp_dir(temp_idx(k)).freq );
             temp_struct.(temp_field) = temp_img;
-%             figure(1), imshow( temp_img );
-            title(strcat(sprintf( 'cell: %i ', cell_idx_list(j)), temp_field));
+            %             figure(1), imshow( temp_img );
+            %             title(strcat(sprintf( 'cell: %i ', cell_idx_list(j)), temp_field));
             if(isempty(img_stack))
                 img_stack = temp_img;
             else
                 img_stack = cat( 3, img_stack, temp_img );
             end
-            freq_vec = [freq_vec; temp_dir(temp_idx(k)).freq];
+            freqs_vec = [freqs_vec; {temp_dir(temp_idx(k)).freq}];
+            temp_vec = [temp_vec; {temp_dir(temp_idx(k)).freq}];
+            if( strcmp( temp_dir(temp_idx(k)).freq, 'dic') )
+                freqs_cell = [freqs_cell; {freqs_vec}];
+                temp_vec = [];
+            end
         end
     end
     img_dir_cell{i} = temp_dir;
@@ -90,29 +97,41 @@ clear temp* i j k img_dirstr key idx img_dirs max_idx freq_str ...
 
 %% data processing here
 bw_stack = zeros( size(img_stack) );
+bw_stripe_stack = zeros( size(img_stack) );
 bwconv_stack = zeros( size(img_stack) );
 
 dim = size(img_stack, 1);
 x0 = [1,0,50,0,50,0];
 lb = [0,-dim/2,0,-dim/2,0,-pi/4];
 ub = [realmax('double'),dim/2,(dim/2)^2,dim/2,(dim/2)^2];
+cell_idx = 1;
+freq_idx = 0;
+img_cell_stacks = cell(length(freqs_cell), 1);
+load('gmm.mat');
+last_dic = 0;
 
 for i = 1:size( img_stack, 2 )
     
-    [bw_stack(:,:,i), bwconv_stack(:,:,i)] =...
-        threshold_flour_img( im2double(img_stack(:,:,i)), 250 );
+    curr_freq = freqs_vec{i};
     
-    figure(1)
-    subplot(1,2,1), imshow( img_stack(:,:,i), [] );
-    subplot(1,2,2), imshow( bw_stack(:,:,i));
-    
-    [x,resnorm,residual,exitflag] =...
-                     fit_gaussian_flour(img_stack(:,:,i), bw_stack(:,:,i));
-
-    [thetaD, pattern, img_corr] = est_pattern_orientation(img_stack(:,:,i), bw_stack(:,:,i));
-    
-    figure(4), mesh(img_corr);
-    
-    
+    switch curr_freq
+        case 'dic'
+            clustered_img = cluster_img_entropy( img_stack(:,:,i), [], gmm, 9, 1000);
+            bw_stack(:,:,i) = imfill( (clustered_img > 1), 'holes' );
+        otherwise
+            [bw_stack(:,:,i), bwconv_stack(:,:,i)] =...
+                threshold_flour_img( im2double(img_stack(:,:,i)), 250 );
+            
+            figure(1)
+            subplot(1,2,1), imshow( img_stack(:,:,i), [] );
+            subplot(1,2,2), imshow( bw_stack(:,:,i));
+            
+            [x,resnorm,residual,exitflag] =...
+                fit_gaussian_flour(img_stack(:,:,i), bw_stack(:,:,i));
+            
+            [thetaD, pattern, img_corr] = est_pattern_orientation(img_stack(:,:,i), bw_stack(:,:,i));
+            figure(4), mesh(img_corr);
+            stripe_centers = find_stripe_locations( thetaD, img_corr, 45 );
+    end
     
 end
