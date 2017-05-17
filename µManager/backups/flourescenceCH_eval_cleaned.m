@@ -9,8 +9,6 @@ filenames = {allFiles.name};
 
 timeMat = zeros(numel(filenames));
 
-
-
 for i=1:numel(filenames)
     
     img = im2double(imread(strcat( dir_str, filenames{i} )));
