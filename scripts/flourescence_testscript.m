@@ -3,11 +3,11 @@ clear
 %% gathering and organizing data here
 
 % lab path
-% parent_dirstr = 'T:\Marino\Microscopy\Strip Pattern\from Sara\';
-% img_dirs = dir( 'T:\Marino\Microscopy\Strip Pattern\from Sara\2013*' );
+parent_dirstr = 'T:\Marino\Microscopy\Strip Pattern\from Sara\';
+img_dirs = dir( 'T:\Marino\Microscopy\Strip Pattern\from Sara\2013*' );
 % home path
-parent_dirstr = 'D:\OS_Biophysik\Microscopy\Strip Pattern\from Sara\';
-img_dirs = dir( 'D:\OS_Biophysik\Microscopy\Strip Pattern\from Sara\2013*' );
+% parent_dirstr = 'D:\OS_Biophysik\Microscopy\Strip Pattern\from Sara\';
+% img_dirs = dir( 'D:\OS_Biophysik\Microscopy\Strip Pattern\from Sara\2013*' );
 
 img_dirstr = cell(length(img_dirs),1);
 img_dir_cell = cell(length(img_dirs),1);
@@ -100,15 +100,16 @@ bw_stack = zeros( size(img_stack) );
 bw_stripe_stack = zeros( size(img_stack) );
 bwconv_stack = zeros( size(img_stack) );
 
-dim = size(img_stack, 1);
+img_dims = [size(img_stack, 1), size(img_stack,2)];
 x0 = [1,0,50,0,50,0];
-lb = [0,-dim/2,0,-dim/2,0,-pi/4];
-ub = [realmax('double'),dim/2,(dim/2)^2,dim/2,(dim/2)^2];
+lb = [0,-img_dims/2,0,-img_dims/2,0,-pi/4];
+ub = [realmax('double'),img_dims(1)/2,(img_dims(1)/2)^2,img_dims(1)/2,(img_dims(1)/2)^2];
 cell_idx = 1;
 freq_idx = 0;
 img_cell_stacks = cell(length(freqs_cell), 1);
 load('gmm.mat');
 last_dic = 0;
+stripe_width = 25;
 
 for i = 1:size( img_stack, 2 )
     
@@ -116,7 +117,8 @@ for i = 1:size( img_stack, 2 )
     
     switch curr_freq
         case 'dic'
-            clustered_img = cluster_img_entropy( img_stack(:,:,i), [], gmm, 9, 1000);
+            clustered_img = ...
+                cluster_img_entropy( img_stack(:,:,i), [], gmm, 9, 1000);
             bw_stack(:,:,i) = imfill( (clustered_img > 1), 'holes' );
         otherwise
             [bw_stack(:,:,i), bwconv_stack(:,:,i)] =...
@@ -129,9 +131,18 @@ for i = 1:size( img_stack, 2 )
             [x,resnorm,residual,exitflag] =...
                 fit_gaussian_flour(img_stack(:,:,i), bw_stack(:,:,i));
             
-            [thetaD, pattern, img_corr] = est_pattern_orientation(img_stack(:,:,i), bw_stack(:,:,i));
+            [thetaD, pattern, img_corr] = ...
+                est_pattern_orientation(img_stack(:,:,i), bw_stack(:,:,i));
             figure(4), mesh(img_corr);
             stripe_centers = find_stripe_locations( thetaD, img_corr, 45 );
+            bw_stripe_stack(:,:,i) = ...
+                generate_stripe_bw( stripe_centers, thetaD, img_dims, 25 );
+            test_perim = bwperim( bw_stripe_stack(:,:,i) );
+            temp_img = img_stack(:,:,i);
+            temp_img(test_perim==1) = max(max(img_stack(:,:,i)));
+            
+            
+            
     end
     
 end
