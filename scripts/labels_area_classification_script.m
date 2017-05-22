@@ -1,5 +1,19 @@
-labels_path = 'D:\OS_Biophysik\Microscopy\DIC_160308_2033_labels_edited_latest8.mat';
-image_path = 'D:\OS_Biophysik\DIC_images\DIC_160308_2033.tif';
+
+[~, result] = dos('getmac');
+
+if(strcmp(result(160:176), '64-00-6A-43-EF-0A'))
+    % lab path
+    labels_path = ...
+        'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\DIC_160308_2033_labels_edited_latest8.mat';
+    image_path = ...
+        'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\DIC_160308_2033.tif';
+else
+    % home path
+    labels_path = ...
+        'D:\OS_Biophysik\Microscopy\DIC_160308_2033_labels_edited_latest8.mat';
+    image_path = 'D:\OS_Biophysik\DIC_images\DIC_160308_2033.tif';
+end
+clear result
 img = imread( image_path );
 img_stack = img_2D_to_img_stack( img, [600, 600] );
 
@@ -56,26 +70,9 @@ snames = fieldnames(living_cc_props);
 eval_idx = [1,4,5,7,8,9,10];
 eval_fields = snames(eval_idx);
 
-for i = 1:length(eval_fields)
-    temp_liv = [living_cc_props.(eval_fields{i})];
-    temp_dead = [dead_cc_props.(eval_fields{i})];
-%     temp_bs = [bs_cc_props.(eval_fields{i})];
-    
-    if( mean( temp_liv ) > mean( temp_dead ) )
-        
-    end
 
 
-    figure(1)
-    subplot(1,3,1), hist( temp_liv );
-    subplot(1,3,2), hist( temp_dead );
-    subplot(1,3,3), hist( temp_bs );
-    title( eval_fields{i} ); 
-end
 
-
-    
-                
 
 
 
