@@ -1556,49 +1556,99 @@ classdef classMicroManagerWrapper < handle
             %            imgs_parsed{4} = inp_img(261:end, 261:end);
             
         end
-        % fluorescence channel evaluation
-        function [thetaD, centroyd] = seek_pattern_orientation(this, img)
+        function img_2D = img_stack_to_img_2D( img_stack, dims )
+            %UNTITLED Summary of this function goes here
+            %   Detailed explanation goes here
+            % dims should be a 2D vector in the form of [rows cols] where rows
+            % represents the number of images from the stack per row and cols defined
+            % similarly. rows*cols should equal the number of images in the stack
             
-            this.LocationClassifier = 0;
-            % make sure image is in double format
-            img = im2double(img);
-            % scale image values to 0 to 1
-            img = img-min(min(img));
-            img = img/max(max(img));
-            % pixels are grouped into 3 groups to account for high
-            % intensity values, lighter areas where the cell is located,
-            % and the dark areas
-            threshInt = multithresh(img,2);
-            img_bw = im2bw(img, max(threshInt));
-            % median filter the images for noise removal
-            img_bw = medfilt2(img_bw, [3 3]);
-            % structure elements used in dilation and erosion
-            se90 = strel('line', 3, 90);
-            se0 = strel('line', 3, 0);
-            seD = strel('diamond', 1);
-            % dilate, fill, and erode image for a solid shape
-            img_bw_D = imdilate(img_bw, [se90, se0]);
-            img_bw_F = imfill(img_bw_D, 'holes');
-            bw_F = imerode(img_bw_F, seD);
-            bw_F = imerode(bw_F, seD);
-            % regionprops obtained in order to fit ellipse to largest
-            % structure and use orientation of the ellipse for approximation
-            % of orientation of the pattern
-            cc = bwconncomp(bw_F);
-            s = regionprops(cc, 'Area', 'Orientation', 'MajorAxisLength',...
-                'MinorAxisLength', 'Eccentricity', 'Centroid');
-            s( [s.Area] < 1000 ) = [];
-            s( [s.MinorAxisLength] > 80 ) = [];
-            if(~isempty(s))
-                thetaD = s(cell2mat({s.MajorAxisLength}) == ...
-                    max(cell2mat({s.MajorAxisLength}))).Orientation;
-                centroyd = {s.Centroid}';
-            else
-                thetaD = []; centroyd = [];
-                this.LocationClassifier = -1;
+            numRows = dims(1);
+            numCols = dims(2);
+            data_type = class( img_stack );
+            
+            if( length( dims ) ~= 2 )
+                error('dims should be a vector of length 2')
+            end
+            if( dims(1)*dims(2) ~= size( img_stack, 3) )
+                error('img dimensions and desired stack dimensions inconsistent.' )
+            end
+            if( ~isnumeric( img_stack ) && ~islogical( img_stack ) )
+                error('img is limited to numeric array due to programmer laziness.')
+            end
+            img_stack_dims = size( img_stack );
+            img_stack_dims = img_stack_dims(1:2);
+            
+            img2D_dims = [numRows*img_stack_dims(1) numCols*img_stack_dims(2)];
+            
+            img_2D = zeros( img2D_dims(1), img2D_dims(2), data_type );
+            
+            tempIDX = 0;
+            for i=1:numRows
+                for j=1:numCols
+                    tempIDX = tempIDX + 1;
+                    img_2D( img_stack_dims(1)*(i-1)+1:img_stack_dims(1)*i,...
+                        img_stack_dims(2)*(j-1)+1:img_stack_dims(2)*j ) =...
+                        img_stack( :,:, tempIDX );
+                end
+            end
+        end
+        function [img_stack, orig_idx] = img_2D_to_img_stack( img, dims )
+            %img_2D_to_img_stack -
+            %   dims should be the size of each individual image that will be planes
+            %   in the resulting stack in rows x cols format, orig_idx gives a matrix
+            %   with one 2D vector for each image in the resulting image stack. This
+            %   vector corresponds to the top left point of the image in the original
+            %   2D matrix in [row col] format
+            
+            img2D_dims = size( img );
+            data_type = class( img );
+            
+            if( length( dims ) ~= 2 )
+                error('dims should be a vector of length 2')
             end
             
-            figure, imshow(bw_F), title('binary image from seek function')
+            if( mod( img2D_dims(1), dims(1)) ~= 0 || mod( img2D_dims(2), dims(2)) )
+                error('img dimensions and desired stack dimensions inconsistent.' )
+            end
+            
+            if( ~isnumeric( img ) && ~islogical( img )  )
+                error('img is limited to numeric or logical array due to programmer laziness.')
+            end
+            
+            numCols = img2D_dims(1)/dims(1);
+            numRows = img2D_dims(2)/dims(2);
+            
+            orig_idx = zeros( numCols*numRows, 2 );
+            
+            img_stack = zeros(dims(1), dims(2), numCols*numRows, data_type);
+            
+            tempIDX = 0;
+            for i=1:numRows
+                for j=1:numCols
+                    tempIDX = tempIDX + 1;
+                    img_stack( :,:, tempIDX ) =...
+                        img( dims(1)*(i-1)+1:dims(1)*i, dims(2)*(j-1)+1:dims(2)*j );
+                    orig_idx( tempIDX, : ) = [dims(1) dims(2)];
+                end
+            end
+        end
+        % fluorescence channel evaluation
+        function [thetaD, pattern, img_corr] = ...
+                est_pattern_orientation( img, bw_img )
+            cc = bwconncomp(bw_img);
+            
+            % s = regionprops(cc, 'Area', 'Orientation', 'MajorAxisLength',...
+            %     'MinorAxisLength', 'Eccentricity', 'Centroid');
+            s = regionprops(cc, 'MajorAxisLength');
+            k = find(cell2mat({s.MajorAxisLength})==max(cell2mat({s.MajorAxisLength})));
+            
+            thetaD = s(k).Orientation;
+            
+            pattern = floures_pattern_gen(25, 30, size(bw_img), 1);
+            pattern = imrotate(pattern, -(90-thetaD));
+            
+            img_corr = conv2( double(img), double(pattern), 'same');
         end
         function pattern_temp =...
                 floures_pattern_gen(this, str_with, sp_with, img_dims,numstrps, thetaD)
@@ -1618,6 +1668,105 @@ classdef classMicroManagerWrapper < handle
             pattern_temp = imrotate(pattern_temp, thetaD);
             
         end
+        function [x, resnorm, residual, exitflag] = fit_gaussian_flour( img, bw_img )
+            dim = size(img, 1);
+            x0 = [1,0,50,0,50];
+            lb = [0,-dim/2,0,-dim/2,0];
+            ub = [realmax('double'),dim/2,(dim/2)^2,dim/2,(dim/2)^2];
+            
+            [X,Y] = meshgrid(-dim/2+.5:dim/2-.5);
+            
+            X = X(:); Y = Y(:); temp_bw = bw_img(:); Z = im2double(img(:));
+            
+            X(temp_bw==0) = [];
+            Y(temp_bw==0) = [];
+            Z(temp_bw==0) = [];
+            xdata(:,1) = X;
+            xdata(:,2) = Y;
+            
+            [x,resnorm,residual,exitflag] = lsqcurvefit(@D2GaussFunction,x0,xdata,Z,lb,ub);
+        end
+        function stripe_bw = ...
+                generate_stripe_bw( stripe_centers, thetaD, img_dims, stripe_width  )
+            %GENERATE_STRIPE_BW Generated black and white image composed of the
+            % a stripe pattern specified by stripe_width and stripe_centers, rotated by
+            % thetaD
+            %   thetaD should be an angle in degrees, stripe_centers should be x
+            %   coordinates (the y coordinate is assumed to be the center of the
+            %   image), and stripe_width should be a value in pixels
+            
+            % adapting for worst-case scenario once rotated - so that the stripe still
+            % extends along the entire image
+            dim = round( sqrt( img_dims(1)^2 + img_dims(2)^2 ) );
+            col_diff = dim - img_dims(2);
+            row_diff = dim - img_dims(1);
+            % stripe_centers = stripe_centers + col_diff/2;
+            
+            stripe_template = ones( dim, stripe_width );
+            stripe_template = imrotate( stripe_template, -(90-thetaD) );
+            stripe_dims = size( stripe_template );
+            h_diff = stripe_dims(1) - img_dims(1);
+            stripe_template = stripe_template( 1+h_diff/2:end-h_diff/2,:);
+            stripe_dims = size( stripe_template );
+            stripe_bw = zeros( img_dims );
+            center = floor(stripe_dims(2)/2);
+            
+            for i = 1:length( stripe_centers )
+                shift = center-stripe_centers(i);
+                stripe_locs = (1:stripe_dims(2))-shift;
+                if( min(stripe_locs) < 1 )
+                    new_start = find( stripe_locs == 1 );
+                    stripe_locs = stripe_locs(new_start:end);
+                    stripe_crop = stripe_template(:,new_start:end);
+                else
+                    stripe_crop = stripe_template;
+                end
+                if( max(stripe_locs) > size(stripe_bw, 2) )
+                    new_end = find( stripe_locs == size(stripe_bw,2) );
+                    stripe_locs = stripe_locs(1:new_end);
+                    stripe_crop = stripe_crop(:,1:new_end);
+                end
+                if( length(stripe_locs) ~= size(stripe_crop,2) )
+                    error('stripe dimension mismatch')
+                end
+                stripe_bw(:, stripe_locs) = or( stripe_bw(:,stripe_locs), stripe_crop );
+            end
+            % stripe_bw = imrotate( stripe_bw, -(90-thetaD) );
+            diff = size( stripe_bw ) - img_dims;
+            % stripe_bw = imcrop( stripe_bw,...
+            %     [1+col_diff/2, 1+row_diff/2, img_dims(2), img_dims(1)] );
+            stripe_bw = imcrop( stripe_bw,...
+                [1+diff(2)/2, 1+diff(1)/2, img_dims(2), img_dims(1)] );
+            
+        end
+        function loc_max = clean_loc_vec( data, indices, min_dist, phiD  )
+            dy_dx = diff(data)./diff(indices);
+            zero_cross = diff( sign(dy_dx), 1, 2);
+            loc_max = find(zero_cross<0);
+            max_vals = data(loc_max);
+            dists = diff(loc_max)*sin(phiD);
+            cnt = 1;
+
+            while( any( dists < min_dist ) )
+                [~,sorted_idx] = sort(max_vals);
+                sorted_idx = fliplr(sorted_idx);
+                max_idx = sorted_idx(cnt);
+
+                while( max_idx > 1 && dists(max_idx-1)<min_dist )
+                    loc_max(max_idx-1) = [];
+                    max_idx = max_idx-1;
+                    dists = diff(loc_max)*sin(phiD);
+                    max_vals = data(loc_max);
+                end
+                while( max_idx < length(loc_max) && dists(max_idx)<min_dist)
+                    loc_max(max_idx+1) = [];
+                    dists = diff(loc_max)*sin(phiD);
+                    max_vals = data(loc_max);
+                end
+                cnt = cnt+1;
+            end
+        end
+        % old flourescence functions - can be cleaned and maybe removed
         function newLinez = create_linez(this, img, thetaD, centroyd)
             % this function accepts an angle, thetaD (as determined by the
             % seek_pattern function), a point that the line goes through,
@@ -1958,8 +2107,98 @@ classdef classMicroManagerWrapper < handle
                 this.LocationClassifier = -1;
             end
         end
-        
         % DIC channel evaluation
+        function gmm = ...
+                generate_gmm_entropy(img_stack, block_dims, wind, num_clusts)
+            
+            img_ent = zeros( size( img_stack ) );
+            
+            for i = 1:size(img_stack,3)
+                im = img_stack(:,:,i);
+                img_ent(:,:,i) = entropyfilt(im, ones(wind,wind));
+            end
+            
+            img_ent = img_stack_to_img_2D( img_ent, block_dims );
+            
+            se = strel('disk',9);
+            ent_smooth = imclose(img_ent, se);
+            
+            skip_size = 30;
+            ent_vector = ent_smooth(:);
+            options = statset( 'MaxIter', 200 );
+            gmm = fitgmdist(ent_vector(1:skip_size:end), num_clusts, 'replicates',3, 'Options', options);
+        end
+        function labeled_img = ...
+                cluster_img_entropy(img, stack_dims, gmm, wind, sizeThresh)
+            % if stack_dims is [] that means that the image should be assumed to be a
+            % single 2D image rather than an array of 2D images composing a larger
+            % image
+            
+            if( isempty( stack_dims) )
+                img_ent = entropyfilt( img, ones(wind,wind) );
+                se = strel('disk',9);
+                ent_smooth = imclose(img_ent, se);
+            else
+                img_stack = img_2D_to_img_stack( img, stack_dims );
+                img_ent = entropyfilt( img_stack, ones(wind,wind) );
+                img_ent = img_stack_to_img_2D(img_ent, [15 15]);
+                se = strel('disk',9);
+                ent_smooth = imclose(img_ent, se);
+            end
+            num_clusts = length(gmm.mu);
+            idx = reshape(cluster(gmm, ent_smooth(:)), size(ent_smooth));
+            % Order the clustering so that the indices are from min to max cluster mean
+            [~,sorted_idx] = sort(gmm.mu);
+            temp = zeros(num_clusts,1);
+            for j = 1:num_clusts
+                temp(j) = find( sorted_idx == j );
+            end
+            sorted_idx = temp; clear temp
+            
+            new_idx = sorted_idx(idx);
+            bwInterior = (new_idx > 1);
+            cc = bwconncomp(bwInterior);
+            bSmall = cellfun(@(x)(length(x) < sizeThresh), cc.PixelIdxList);
+            new_idx(vertcat(cc.PixelIdxList{bSmall})) = 1;
+            labeled_img = new_idx;
+            
+        end
+        function [cc, keep_idx] = remove_oversized_regions( cc, dims )
+        %REMOVE_OVERSIZED_REGIONS takes a connected components structure as
+        % returned from bwconncomp(BW) function and removes any component that does
+        % not fit in the bounding box defined by dims
+        %   cc - a connected components structure from bwconncomp(BW)
+        %   dims - dimensions of the specified bounding box in [
+            cc_props = regionprops(cc, 'BoundingBox');
+
+            keep_idx = [];
+            for i = 1:length( cc_props )
+                bnd_box = cc_props(i).BoundingBox;
+                if( bnd_box(3)<dims(1) && bnd_box(4)<dims(2) )
+                    keep_idx = [keep_idx; i];
+                end
+            end
+
+            cc = cc(keep_idx);
+            cc.PixelIdxList = cc.PixelIdxList(keep_idx);
+            cc.NumObjects = length(keep_idx);
+        end
+        function class_vec = classify_ROIs( stat_vec, thresh )
+        %CLASSIFY_ROIS takes a vector stat_vec and a threshold thres and classifies
+        % entries in stat_vec according to the specify threshold with 'true'
+        % corresponding to the higher-valued class
+        % thresh - a scalar threshold
+            if( numel(thresh) ~= 1 )
+                error('threshold must be scalar value')
+            end
+            if( ~isnumeric(thresh) )
+                error('threshold must be numeric value')
+            end
+
+            class_vec = (stat_vec > thresh);
+        end
+
+        % old DIC functions - can be cleaned and maybe removed
         function [imgOut, imgOutScld] =...
                 lowpassFFT(this, img, uprbound, deltax, deltay)
             % this function computes the lowpass filtered image of the image
