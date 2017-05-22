@@ -6,8 +6,7 @@ cc = bwconncomp(bw_img);
 
 % s = regionprops(cc, 'Area', 'Orientation', 'MajorAxisLength',...
 %     'MinorAxisLength', 'Eccentricity', 'Centroid');
-s = regionprops(cc, 'Area', 'Orientation', 'MajorAxisLength',...
-     'MinorAxisLength', 'Eccentricity', 'Centroid');
+s = regionprops(cc, 'MajorAxisLength', 'Orientation');
 k = find(cell2mat({s.MajorAxisLength})==max(cell2mat({s.MajorAxisLength})));
 
 thetaD = s(k).Orientation;

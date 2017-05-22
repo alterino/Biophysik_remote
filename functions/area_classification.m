@@ -8,19 +8,15 @@ function temp = area_classification( image_path, labels_path, model )
 % home path
 % load( 'D:\OS_Biophysik\Microscopy\DIC_160308_2033_labels_edited_latest8.mat' )
 % img_2D = imread( 'D:\OS_Biophysik\DIC_images\DIC_160308_2033.tif' );
-temp = 'make an output stupid\n';
 sprintf(temp);
 img_2D = imread( image_path );
 
 load( labels_path );
 [img_stack, ~] = img_2D_to_img_stack( img_2D, [600 600] );
 
-% img_flour = im2double( imread( 'D:\OS_Biophysik\Microscopy\Fluor_TIRF_488_160308_2041.tif' ) );
-
 img_dims = [ size(img_stack, 1), size(img_stack, 2) ];
 label_stack = zeros( img_dims(1), img_dims(2), size(img_stack, 3) );
 label_counts = zeros( 3,1 );
-% label_2D = zeros( size( img_2D ) );
 
 
 for i = 1:length( ROI_cell )
@@ -51,10 +47,6 @@ empty_space = ( label_2D == 0 );
 living_cc = bwconncomp( living_ROIs );
 dead_cc = bwconncomp( dead_ROIs );
 bs_cc = bwconncomp( bs_ROIs );
-
-% [living_cc_props, living_area_vec] = get_cc_regionprops( living_cc );
-% [dead_cc_props, dead_area_vec] = get_cc_regionprops( dead_cc );
-% [bs_cc_props, bs_area_vec] = get_cc_regionprops( bs_cc );
 
 living_cc_props = get_cc_regionprops( living_cc );
 dead_cc_props = get_cc_regionprops( dead_cc );
