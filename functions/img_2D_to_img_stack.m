@@ -13,7 +13,7 @@ if( length( dims ) ~= 2 )
    error('dims should be a vector of length 2') 
 end
 
-if( mod( img2D_dims(1), dims(1)) ~= 0 || mod( img2D_dims(2), dims(2)) )
+if( mod( img2D_dims(1), dims(1)) ~= 0 || mod( img2D_dims(2), dims(2)) ~= 0 )
    error('img dimensions and desired stack dimensions inconsistent.' ) 
 end
 

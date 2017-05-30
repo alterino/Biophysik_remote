@@ -1,6 +1,6 @@
 function class_vec = classify_ROIs( stat_vec, thresh )
 %CLASSIFY_ROIS takes a vector stat_vec and a threshold thres and classifies
-% entries in stat_vec according to the specify threshold with 'true'
+% entries in stat_vec according to the specified threshold with 'true'
 % corresponding to the higher-valued class
 % thresh - a scalar threshold
 
