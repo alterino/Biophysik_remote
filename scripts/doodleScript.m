@@ -23,20 +23,3 @@
 %     
 % end
 
-% testing rand7 using rand5 implementation
-cnts = zeros(1,5);
-num_samps = 1e10;
-num_vec = [];
-for i = 1:num_samps
-
-%     [temp, bin] = rand5();
-%     num_vec = [num_vec, bin];
-    temp = rand5();
-    cnts(temp) = cnts(temp) + 1;
-    if( mod( i,1e4 ) == 0 )
-        probs = cnts/i
-    end
-    
-end
-
-probs = cnts/num_samps;

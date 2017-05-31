@@ -61,9 +61,8 @@ for i = 1:size(img_stack)
         temp_perim = bwperim( bw_stack(:,:,i) );
         temp_img = img_stack(:,:,i);
         temp_img(temp_perim==1) = max(max(temp_img));
-%         figure(1), subplot(1,2,1), imshow( temp_img, [] );
-%         subplot(1,2,2), imshow( bw_stack(:,:,i) );
-%         waitforbuttonpress
+        figure(1), subplot(1,2,1), imshow( temp_img, [] );
+        subplot(1,2,2), imshow( bw_stack(:,:,i) );
     end
 end
 
