@@ -32,14 +32,15 @@
 % [x,y] = ginput(1);
 
 % image analysis for microscope automation
-if( exist('img','var')==0 )
-    [~, result] = dos('getmac');
-    if(strcmp(result(160:176), '64-00-6A-43-EF-0A'))
-        img = imread('T:\Marino\Microscopy\170523\DIC_170523_1537.tif'); % lab path
-    else
-        img = imread('D:\OS_Biophysik\Microscopy\170523\DIC_170523_1537.tif'); % home path
-    end
-end
+% if( exist('img','var')==0 )
+%     [~, result] = dos('getmac');
+%     if(strcmp(result(160:176), '64-00-6A-43-EF-0A'))
+%         img = imread('T:\Marino\Microscopy\170523\DIC_170523_1537.tif'); % lab path
+%     else
+%         img = imread('D:\OS_Biophysik\Microscopy\170523\DIC_170523_1537.tif'); % home path
+%     end
+% end
+img = imread('T:\Marino\Microscopy\170523\DIC_170523_1537.tif');
 
 % placeholder for generating image stack
 img_stack = img_2D_to_img_stack(img, [600, 600] );
@@ -60,8 +61,9 @@ for i = 1:size(img_stack)
         temp_perim = bwperim( bw_stack(:,:,i) );
         temp_img = img_stack(:,:,i);
         temp_img(temp_perim==1) = max(max(temp_img));
-        figure(1), subplot(1,2,1), imshow( temp_img, [] );
-        subplot(1,2,2), imshow( bw_stack(:,:,i) );
+%         figure(1), subplot(1,2,1), imshow( temp_img, [] );
+%         subplot(1,2,2), imshow( bw_stack(:,:,i) );
+%         waitforbuttonpress
     end
 end
 
