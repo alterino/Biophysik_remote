@@ -119,6 +119,9 @@ last_dic = 0;
 stripe_width = 25;
 flour_idxs = [];
 dic_bool =  0;
+dic_idx =[];
+flour_stats = struct('flour_mean', inf, 'nonflour_mean', inf,...
+                                   'flour_var', inf, 'non_flour_var', inf);
 
 for i = 1:size( img_stack, 2 )
     
@@ -129,9 +132,10 @@ for i = 1:size( img_stack, 2 )
             [clustered_img, bw_img] = ...
                 cluster_img_entropy( img_stack(:,:,i), [], gmm, 9, 1000);
 %             bw_stack(:,:,i) = bw_img;
-            bw_stack(:,:,i) = (clustered_img > 2);
+            bw_stack(:,:,i) = (clustered_img > 1);
 %             bw_stack(:,:,i) = imfill( (clustered_img > 2), 'holes' );
-            last_dic_idx = i;
+%             last_dic_idx = i;
+            dic_idx = [dic_idx; i];
             dic_bool = 1;
         otherwise
             flour_idxs = [flour_idxs; i];
@@ -151,7 +155,6 @@ for i = 1:size( img_stack, 2 )
             bw_stripe_stack(:,:,i) = ...
                 generate_stripe_bw( stripe_centers, thetaD, img_dims, 25 );
     end
-    
     
     if( dic_bool )
         for j = 1:length(flours_idxs)
