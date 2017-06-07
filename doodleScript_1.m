@@ -32,14 +32,15 @@
 % [x,y] = ginput(1);
 
 % image analysis for microscope automation
-if( exist('img','var')==0 )
-    [~, result] = dos('getmac');
-    if(strcmp(result(160:176), '64-00-6A-43-EF-0A'))
-        img = imread('T:\Marino\Microscopy\170523\DIC_170523_1537.tif'); % lab path
-    else
-        img = imread('D:\OS_Biophysik\Microscopy\170523\DIC_170523_1537.tif'); % home path
-    end
-end
+% if( exist('img','var')==0 )
+%     [~, result] = dos('getmac');
+%     if(strcmp(result(160:176), '64-00-6A-43-EF-0A'))
+%         img = imread('T:\Marino\Microscopy\170523\DIC_170523_1537.tif'); % lab path
+%     else
+%         img = imread('D:\OS_Biophysik\Microscopy\170523\DIC_170523_1537.tif'); % home path
+%     end
+% end
+img = imread('T:\Marino\Microscopy\170523\DIC_170523_1537.tif');
 
 % placeholder for generating image stack
 img_stack = img_2D_to_img_stack(img, [600, 600] );
