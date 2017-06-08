@@ -6,6 +6,7 @@ classdef AnalysisToolbox < handle
         h_panel_images
         h_axes
         h_image_dropdown
+        h_filter_dropdown
         %         h_images
         h_panel_buttons
         h_panel_controls
@@ -136,7 +137,7 @@ classdef AnalysisToolbox < handle
                 'FontUnits','normalized',...
                 'FontSize', 0.3,...
                 'String', 'Filter',...
-                'Callback', @(src,evnt)filter_image(this));
+                'Callback', @(src,evnt)setup_filter_controls(this));
             
             uicontrol(...
                 'Parent',this.h_panel_buttons,...
@@ -160,7 +161,14 @@ classdef AnalysisToolbox < handle
             
         end
         
-        function setup_analysis_controls(this)
+        function setup_filter_controls(this)
+            
+            this.h_filter_dropdown = uicontrol(this.h_panel_controls,...
+                'Style', 'popup',...
+                'String', {'Select filter type', 'gradient', 'entropy',...
+                'lowpass', 'highpass', 'bandpass'},...
+                'Units', 'normalized', 'Position', [0,18/20,1/3,1/20],...
+                'CallBack', @(src, evnt)filter_image(this, src, evnt) );
             
             
         end
@@ -201,12 +209,20 @@ classdef AnalysisToolbox < handle
             
             this.images{length(this.image_labels)} = imread( strcat( pathname, filename ) );
             update_axes(this, length(this.image_labels), 0);
-            
         end
         
-        function filter_image(this)
+        function filter_image(this, source, events)
+            filter_type = source.String{source.Value};
             
-            
+            switch filter_type
+                case 'entropy'
+                    
+                    
+                    
+                    
+                otherwise
+            end
+                        
             
             
         end
@@ -286,10 +302,6 @@ classdef AnalysisToolbox < handle
         end
         
         %% analysis functions
-        
-        
-        
-        
     end
     
     
