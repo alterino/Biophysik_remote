@@ -7,10 +7,12 @@ classdef AnalysisToolbox < handle
         h_axes
         h_image_dropdown
         h_filter_dropdown
+        h_data_selection_dropdown
         %         h_images
         h_panel_buttons
         h_panel_controls
         h_panel_analysis
+        h_panel_filter
         h_controls
         h_labels_table
         image_panel_dims = [2,2];
@@ -20,6 +22,7 @@ classdef AnalysisToolbox < handle
         images = [];
         image_labels
         image_grid_labels = cell(2,2);
+        image_directory
         
     end
     % UI interface
@@ -51,6 +54,8 @@ classdef AnalysisToolbox < handle
                 'Units','normalized',...
                 'Position',[3/4 0 1/4 0.5],...
                 'backgroundcolor','w');
+            
+            this.image_directory = pwd;
             
             arrange_image_panel(this);
             setup_controls(this);
@@ -149,26 +154,44 @@ classdef AnalysisToolbox < handle
                 'String', 'Cluster',...
                 'Callback', @(src,evnt)cluster_image(this));
             
-            %             this.h_labels_table = uitable(...
-            %                 'Parent',this.h_panel_controls,...
-            %                 'Units','normalized',...
-            %                 'FontUnits','normalized',...
-            %                 'SelectionHighlight','off',...
-            %                 'FontSize',0.1,...
-            %                 'Position',[1/4 0 3/4 1/4],...
-            %                 'Data',this.image_grid_labels);
-            
-            
         end
         
         function setup_filter_controls(this)
             
-            this.h_filter_dropdown = uicontrol(this.h_panel_controls,...
+            if( isempty( this.h_panel_filter ) )
+                this.h_panel_filter = uipanel(this.h_panel_controls,...
+                    'Units','normalized', 'Position', [0 0 1 1],...
+                    'backgroundcolor','w',...
+                    'Visible', 'on');
+            else
+                set( this.h_panel_filter, 'Visible', 'on' );
+            end
+            
+            uicontrol(this.h_panel_filter,...
+                'Style','text',...
+                'Units', 'normalized', 'Position',[0 16/18 1/3 2/18],...
+                'String',{'Select filter:'; 'Select data:'});
+%             uicontrol(this.h_panel_filter,...
+%                 'Style','text',...
+%                 'Units', 'normalized', 'Position',[0 16/18 1/3 1/18],...
+%                 'String','Select data:');
+            
+            uicontrol(this.h_panel_filter,...
                 'Style', 'popup',...
-                'String', {'Select filter type', 'gradient', 'entropy',...
+                'String', {'', 'gradient', 'entropy',...
                 'lowpass', 'highpass', 'bandpass'},...
-                'Units', 'normalized', 'Position', [0,18/20,1/3,1/20],...
+                'Units', 'normalized', 'Position', [1/3,19/20,1/3,1/20],...
                 'CallBack', @(src, evnt)filter_image(this, src, evnt) );
+            
+            uicontrol(this.h_panel_filter,...
+                'Style', 'popup',...
+                'String', [{''}; this.image_labels],...
+                'Units', 'normalized', 'Position', [1/3,1/2,1/3,1/20],...
+                'CallBack', @(src, evnt)filter_image(this, src, evnt) );
+            
+%             uipanel(this.h_panel_filter,...
+                
+            
             
             
         end
@@ -180,7 +203,7 @@ classdef AnalysisToolbox < handle
             new_image_label = source.String{source.Value};
             new_image_idx = find( strcmp( new_image_label, this.image_labels ) );
             image_grid_idx = [str2double(source.Tag(1)), str2double(source.Tag(end))];
-            %             image_grid_idx =
+            
             if( isempty(new_image_idx) )
                 warning('no file selected')
                 return
@@ -196,7 +219,7 @@ classdef AnalysisToolbox < handle
             % douche.
             temp_image_dir = 'D:\OS_Biophysik\Microscopy\Raw Images for Michael\DIC';
             [filename, pathname, filter_idx] = uigetfile({'*.tif'; '*.tiff'},...
-                'Select TIFF image file', temp_image_dir);
+                'Select TIFF image file', this.image_directory);
             if( filter_idx > 2 )
                 error('expected TIFF image')
             end
@@ -207,6 +230,7 @@ classdef AnalysisToolbox < handle
             end
             this.image_labels = [this.image_labels; label_str];
             
+            this.image_directory = pathname;
             this.images{length(this.image_labels)} = imread( strcat( pathname, filename ) );
             update_axes(this, length(this.image_labels), 0);
         end
@@ -222,7 +246,7 @@ classdef AnalysisToolbox < handle
                     
                 otherwise
             end
-                        
+            
             
             
         end

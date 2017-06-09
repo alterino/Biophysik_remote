@@ -121,7 +121,7 @@ flour_idxs = [];
 dic_bool =  0;
 dic_idx =[];
 flour_stats = struct('flour_mean', inf, 'nonflour_mean', inf,...
-                                   'flour_var', inf, 'non_flour_var', inf);
+    'flour_var', inf, 'non_flour_var', inf);
 
 for i = 1:size( img_stack, 2 )
     
@@ -131,29 +131,37 @@ for i = 1:size( img_stack, 2 )
         case 'dic'
             [clustered_img, bw_img] = ...
                 cluster_img_entropy( img_stack(:,:,i), [], gmm, 9, 1000);
-%             bw_stack(:,:,i) = bw_img;
             bw_stack(:,:,i) = (clustered_img > 1);
-%             bw_stack(:,:,i) = imfill( (clustered_img > 2), 'holes' );
-%             last_dic_idx = i;
             dic_idx = [dic_idx; i];
             dic_bool = 1;
         otherwise
             flour_idxs = [flour_idxs; i];
             [bw_stack(:,:,i), bwconv_stack(:,:,i)] =...
                 threshold_flour_img( im2double(img_stack(:,:,i)), 250 );
-            %             figure(1)
-            %             subplot(1,2,1), imshow( img_stack(:,:,i), [] );
-            %             subplot(1,2,2), imshow( bw_stack(:,:,i));
+            
             
             [x,resnorm,residual,exitflag] =...
                 fit_gaussian_flour(img_stack(:,:,i), bw_stack(:,:,i));
             
+            dims = size( img_stack(:,:,i) );
+            [X,Y] = meshgrid(-dims(2)/2+.5:dims(2)/2-.5, -dims(1)/2+.5:dims(1)/2-.5);
+            X = X(:); Y=Y(:);
+            xdata(:,1) = X; xdata(:,2) = Y;
+            
+            gauss = D2GaussFunction( x, xdata );
+            gauss = reshape( gauss, dims );
+            %             [X,Y] = meshgrid(1:dims(1), 1:dims(2));
+            %             X = X(:); Y=Y(:);
+            
             [thetaD, pattern, img_corr] = ...
                 est_pattern_orientation(img_stack(:,:,i), bw_stack(:,:,i));
-            %             figure(4), mesh(img_corr);
+            
             stripe_centers = find_stripe_locations( thetaD, img_corr, 45 );
             bw_stripe_stack(:,:,i) = ...
                 generate_stripe_bw( stripe_centers, thetaD, img_dims, 25 );
+            img_corrected = ...
+                correct_fluorescence( img_stack(:,:,i), bw_stripe_stack(:,:,i), gauss );
+            img_corrected = reshape( img_corrected, dims );
     end
     
     if( dic_bool )
@@ -167,6 +175,7 @@ for i = 1:size( img_stack, 2 )
             temp_img(cell_perim==1) = max(max(temp_img));
             temp_img(flour_perim==1) = max(max(temp_img));
         end
+        dic_bool = 0;
     end
     
     

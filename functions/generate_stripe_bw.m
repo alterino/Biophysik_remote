@@ -10,15 +10,12 @@ function stripe_bw = ...
 % adapting for worst-case scenario once rotated - so that the stripe still
 % extends along the entire image
 dim = round( sqrt( img_dims(1)^2 + img_dims(2)^2 ) );
-col_diff = dim - img_dims(2);
-row_diff = dim - img_dims(1);
-% stripe_centers = stripe_centers + col_diff/2;
 
 stripe_template = ones( dim, stripe_width );
 stripe_template = imrotate( stripe_template, -(90-thetaD) );
 stripe_dims = size( stripe_template );
 h_diff = stripe_dims(1) - img_dims(1);
-stripe_template = stripe_template( 1+h_diff/2:end-h_diff/2,:);
+stripe_template = stripe_template( round(1+h_diff/2:end-h_diff/2,:));
 stripe_dims = size( stripe_template );
 stripe_bw = zeros( img_dims );
 

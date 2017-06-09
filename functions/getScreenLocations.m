@@ -22,4 +22,5 @@ y = screen_dims(4) - y + 1;
 
 close(h_fig);
 warning(orig_state)
+
 end
