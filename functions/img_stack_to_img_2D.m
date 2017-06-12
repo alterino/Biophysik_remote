@@ -6,7 +6,7 @@ function [ img_2D ] = img_stack_to_img_2D( img_stack, dims )
 % represents the number of images from the stack per row and cols defined
 % similarly. rows*cols should equal the number of images in the stack
 
-if( length( dims ) ~= 2 || min(size(img_stack)) > 1 )
+if( length( dims ) ~= 2 || min(size(dims)) > 1 )
     error('dims should be a vector of length 2.')
 end
 if( dims(1)*dims(2) ~= size( img_stack, 3) )

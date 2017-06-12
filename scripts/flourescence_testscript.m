@@ -143,15 +143,12 @@ for i = 1:size( img_stack, 2 )
             [x,resnorm,residual,exitflag] =...
                 fit_gaussian_flour(img_stack(:,:,i), bw_stack(:,:,i));
             
-            dims = size( img_stack(:,:,i) );
-            [X,Y] = meshgrid(-dims(2)/2+.5:dims(2)/2-.5, -dims(1)/2+.5:dims(1)/2-.5);
+            [X,Y] = meshgrid(-img_dims(2)/2+.5:img_dims(2)/2-.5, -img_dims(1)/2+.5:img_dims(1)/2-.5);
             X = X(:); Y=Y(:);
             xdata(:,1) = X; xdata(:,2) = Y;
             
-            gauss = D2GaussFunction( x, xdata );
-            gauss = reshape( gauss, dims );
-            %             [X,Y] = meshgrid(1:dims(1), 1:dims(2));
-            %             X = X(:); Y=Y(:);
+             gauss = D2GaussFunction( x, xdata );
+            gauss = reshape( gauss, img_dims );
             
             [thetaD, pattern, img_corr] = ...
                 est_pattern_orientation(img_stack(:,:,i), bw_stack(:,:,i));
@@ -161,7 +158,7 @@ for i = 1:size( img_stack, 2 )
                 generate_stripe_bw( stripe_centers, thetaD, img_dims, 25 );
             img_corrected = ...
                 correct_fluorescence( img_stack(:,:,i), bw_stripe_stack(:,:,i), gauss );
-            img_corrected = reshape( img_corrected, dims );
+            img_corrected = reshape( img_corrected, img_dims );
     end
     
     if( dic_bool )

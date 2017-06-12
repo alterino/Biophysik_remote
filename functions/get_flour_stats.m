@@ -17,4 +17,3 @@ nonstripe_cc = bwconncomp( nonstripe_bw );
 
 
 end
-

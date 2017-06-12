@@ -3,14 +3,20 @@ function [labeled_img, bw_img] = cluster_img_entropy(img, stack_dims, gmm, wind,
 % single 2D image rather than an array of 2D images composing a larger
 % image
 
+if( length( size(img) ) ~= 2 )
+    error('expected 2D image input');
+end
+
+
 if( isempty( stack_dims) )
     img_ent = entropyfilt( img, ones(wind,wind) );
     se = strel('disk',9);
     ent_smooth = imclose(img_ent, se);
 else
-    img_stack = img_2D_to_img_stack( img, stack_dims );
+    img_dims = size(img)./stack_dims;
+    img_stack = img_2D_to_img_stack( img, img_dims );
     img_ent = entropyfilt( img_stack, ones(wind,wind) );
-    img_ent = img_stack_to_img_2D(img_ent, [15 15]);
+    img_ent = img_stack_to_img_2D(img_ent, [stack_dims(1) stack_dims(2)]);
     se = strel('disk',9);
     ent_smooth = imclose(img_ent, se);
 end
