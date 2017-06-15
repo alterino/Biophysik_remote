@@ -1,4 +1,4 @@
-function gmm = generate_gmm_entropy(img_stack, block_dims, wind, num_clusts)
+function [gmm, img_ent] = generate_gmm_entropy(img_stack, block_dims, wind, num_clusts)
 
 img_ent = zeros( size( img_stack ) );
 
@@ -16,4 +16,5 @@ skip_size = 30;
 ent_vector = ent_smooth(:);
 options = statset( 'MaxIter', 200 );
 gmm = fitgmdist(ent_vector(1:skip_size:end), num_clusts, 'replicates',3, 'Options', options);
+
 end

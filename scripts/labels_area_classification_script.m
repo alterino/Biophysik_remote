@@ -34,7 +34,7 @@ clear out_struct
 keep_idx = [];
 for i = 1:length( living_cc_props )
     bnd_box = living_cc_props(i).BoundingBox;
-    if( living_cc_props(i).Area>1000 && bnd_box(3)<600 && bnd_box(4)<600  )
+    if( living_cc_props(i).Area > 1000 && bnd_box(3) < 600 && bnd_box(4)<600  )
         keep_idx = [keep_idx; i];
     end
 end

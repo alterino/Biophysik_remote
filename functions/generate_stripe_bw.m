@@ -15,6 +15,7 @@ stripe_template = ones( dim, stripe_width );
 stripe_template = imrotate( stripe_template, -(90-thetaD) );
 stripe_dims = size( stripe_template );
 h_diff = stripe_dims(1) - img_dims(1);
+r_diff = stripe_dims(2) - img_dims(2);
 stripe_template = stripe_template( round(1+h_diff/2:end-h_diff/2),:);
 stripe_dims = size( stripe_template );
 stripe_bw = zeros( img_dims );
