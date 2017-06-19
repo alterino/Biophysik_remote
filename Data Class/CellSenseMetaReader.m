@@ -26,7 +26,8 @@ classdef CellSenseMetaReader < handle
         
         function load_meta_file(this,filename)
             if exist(filename,'file') == 2
-                fid = fopen(filename);
+%                 warning off MATLAB:iofun:UnsupportedEncoding;
+                fid = fopen(filename, 'r', 'n', 'Unicode');
                 [this.RawMetaName,this.RawMetaValue] = ...
                     textfile_read_all_param_value(fid,'=');
             else

@@ -10,12 +10,14 @@ i = 1;
 frewind(fid)
 while not(feof(fid)) %end of file
     %read successive file line
-    string = fgetl(fid);
-    string = string(2:2:end);
-    if not(isempty(string))
-        if not(isempty(regexp(string,delimiter))) %#ok
-        list(i,:) = strsplit(string,delimiter); %#ok
-        i = i + 1;
+    curr_line = string(fgetl(fid));
+%     string = string(2:2:end);
+%     curr_line(ismember(curr_line, ' ')) = [];
+%     curr_line = regexprep(curr_line,'[^\w=_[]~#%\\.(),]','');
+    if not(isempty(curr_line))
+        if not(isempty(regexp(curr_line,delimiter))) %#ok
+            list(i,:) = strsplit(curr_line,delimiter); %#ok
+            i = i + 1;
         end %if
     end %if
 end %while
