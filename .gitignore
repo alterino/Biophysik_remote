@@ -12,3 +12,6 @@
 *.dat
 *.stk
 *.bmp
+*.ets
+*.vsi
+*.oex
