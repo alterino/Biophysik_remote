@@ -125,12 +125,12 @@ classdef CellSenseMetaReader < handle
         function out = get_image_height(this)
             value = this.RawMetaValue{strcmp(this.RawMetaName,'Size (pixel)')};
             strings = strsplit(value);
-            out = str2double(strrep(strings{1},',','.')); %[µm]
+            out = str2double(strrep(strings{1},',','.')); %[pix]
         end %fun
         function out = get_image_width(this)
             value = this.RawMetaValue{strcmp(this.RawMetaName,'Size (pixel)')};
             strings = strsplit(value);
-            out = str2double(strrep(strings{3},',','.')); %[µm]
+            out = str2double(strrep(strings{3},',','.')); %[pix]
         end %fun
         function out = get_pixel_size(this)
             pxSizeX = get_pixel_size_X(this);

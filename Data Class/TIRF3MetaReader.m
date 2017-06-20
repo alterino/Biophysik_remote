@@ -27,23 +27,91 @@ classdef TIRF3MetaReader < handle
         function load_meta_file(this,filename)
             if exist(filename,'file') == 2
                 fid = fopen(filename);
+                %                 [this.RawMetaName,this.RawMetaValue] = ... % colon (':') used
+                % as delimiter problematic because also used for time
+                % textfile_read_all_param_value(fid,{'=',':'});
+                % similar issue for '-'
                 [this.RawMetaName,this.RawMetaValue] = ...
                     textfile_read_all_param_value(fid,'=');
+                [header_params, header_values] = parse_header(this,fid); % parses header in custom way for
+                [protocol_params, protocol_values] = parse_protocol(this,fid);
+                this.RawMetaName = cat(1, header_params, protocol_params, this.RawMetaName );% this particular file
+                this.RawMetaValue = cat( 1, header_values, protocol_values, this.RawMetaValue );
             else
                 generate_warning_dialog('File not found',...
                     cellstr(sprintf('%s',filename)))
             end %if
         end %fun
         
+        % function super specific to metadata file current version
+        function [param, value] = parse_header(this,fid)
+            i = 1;
+            frewind(fid)
+            delimiter = {':'};
+            while not(feof(fid)) %end of file
+                %read successive file line
+                curr_line = string(fgetl(fid));
+                if( strfind( curr_line, '[Environment]' ) )
+                    break
+                end
+                if not(isempty(curr_line))
+                    if not(isempty(regexp(curr_line,delimiter))) %#ok
+                        temp = strsplit(curr_line,delimiter); % #ok
+                            if( length(temp) > 2 )
+                                for j = 3:length(temp)
+                                    temp(2) = strcat(temp(2), ':', temp(j));
+                                end
+                                temp(3:end) = [];
+                            end
+                            list(i,:) = strtrim(temp);
+                            i = i + 1;
+                    end %if
+                end %if
+            end %while
+            
+            param = list(:,1);
+            value = list(:,2);
+        end %fun
+
+        function [param, value] = parse_protocol(this,fid)
+            i = 1;
+            frewind(fid)
+            delimiter = '-';
+            while not(feof(fid)) %end of file
+                %read successive file line
+                curr_line = string(fgetl(fid));
+                if strcmp( curr_line, '[Protocol Description]' )
+                    while( ~strcmp( curr_line, '[Protocol Description End]' ) )
+                        curr_line = string( fgetl(fid) );
+                        if not(isempty(regexp(curr_line,delimiter))) %#ok
+                            temp = strsplit(curr_line,delimiter); % #ok
+                            if( length(temp) > 2 )
+                                for j = 3:length(temp)
+                                    temp(2) = strcat(temp(2), '-', temp(j));
+                                end
+                                temp(3:end) = [];
+                            end
+                            list(i,:) = strtrim(temp);
+                            i = i + 1;
+                        end %if
+                    end
+                    break
+                end %if
+            end %while
+            
+            param = list(:,1);
+            value = list(:,2);
+        end %fun
+        
         %% setter
         %% getter
-        function out = get_cellsense_version(this)
+        function out = get_cellsense_version(this) % probably not applicable
             out = this.RawMetaValue{strcmp(this.RawMetaName,'Product Version')};
         end %fun
         function out = get_creation_time(this)
-            out = this.RawMetaValue{strcmp(this.RawMetaName,'Creation Time')};
+            out = this.RawMetaValue{strcmp(this.RawMetaName,'SavedTime')};
         end %fun
-        function out = get_file_size(this)
+        function out = get_file_size(this) % cannot locate this in sample metadata file
             value = this.RawMetaValue{strcmp(this.RawMetaName,'File Size')};
             strings = strsplit(value);
             out = str2double(strrep(strings{1},',','.')); %[gigabyte]
@@ -51,114 +119,115 @@ classdef TIRF3MetaReader < handle
                 out = out/1000;
             end %if
         end %fun
-        function out = get_filename(this)
+        function out = get_filename(this) % cannot locate this in sample metadata file
             out = this.RawMetaValue{strcmp(this.RawMetaName,'Name')};
         end %fun
-        function out = get_experiment_name(this)
+        function out = get_experiment_name(this) % requires use of colon as delimiter
             out = this.RawMetaValue{strcmp(this.RawMetaName,'Experiment Name')};
         end %fun
         
         %%
-        function out = get_microscope_body(this)
+        function out = get_microscope_body(this) % cannot locate this in sample file
             if any(strcmp(this.RawMetaName,'Microscope'))
                 out = this.RawMetaValue{strcmp(this.RawMetaName,'Microscope')};
             elseif any(strcmp(this.RawMetaName,'Microscope Frame')) %backwards compatibility
                 out = this.RawMetaValue{strcmp(this.RawMetaName,'Microscope Frame')};
             end %if
         end %fun
-        function out = get_objective(this)
+        function out = get_objective(this) % cannot locate this in sample file
             out = this.RawMetaValue{strcmp(this.RawMetaName,'Objective Lens')};
         end %fun
-        function out = get_condenser(this)
+        function out = get_condenser(this) % cannot locate this in sample file
             out = this.RawMetaValue{strcmp(this.RawMetaName,'Condenser')};
         end %fun
-        function out = get_mirror_cube(this)
+        function out = get_mirror_cube(this) % cannot locate this in sample file
             out = this.RawMetaValue{strcmp(this.RawMetaName,'Mirror Cube')};
         end %fun
         function out = get_camera(this)
-            out = this.RawMetaValue{strcmp(this.RawMetaName,'Camera Name')};
+            out = this.RawMetaValue{strcmp(this.RawMetaName,'Camera')};
         end %fun
-        function out = get_magnification(this)
-            value = this.RawMetaValue{strcmp(this.RawMetaName,'Total Magnification')};
-            out = str2double(strrep(value,'x',''));
-        end %fun
-        function out = get_objective_immersion_medium(this)
+        function out = get_magnification(this) 
+            pixel_size = get_pixel_size(this);
+            out = '?'; % need to get camera pixel size to calculate 
+        end %fun       % will need a dictionary of pixel size for cameras
+        function out = get_objective_immersion_medium(this) % cannot locate this in sample file
             value = this.RawMetaValue{strcmp(this.RawMetaName,'Refractive Index')};
             strings = strsplit(value);
             out = strings{1};
         end %fun
-        function out = get_objective_immersion_refractive_index(this)
+        function out = get_objective_immersion_refractive_index(this) % cannot locate this in sample file
             value = this.RawMetaValue{strcmp(this.RawMetaName,'Refractive Index')};
             strings = strsplit(value);
             out = str2double(strrep(strrep(strrep(strings{2},',','.'),'(',''),')',''));
         end %fun
-        function out = get_objective_working_distance(this)
+        function out = get_objective_working_distance(this) % cannot locate this in sample file
             value = this.RawMetaValue{strcmp(this.RawMetaName,'Objective Working Distance')};
             strings = strsplit(value);
             out = str2double(strrep(strings{1},',','.')); %[µm]
         end %fun
-        function out = get_numerical_aperture(this)
+        function out = get_numerical_aperture(this) % cannot locate this in sample file
             value = this.RawMetaValue{strcmp(this.RawMetaName,'Numerical Aperture')};
             out = str2double(strrep(value,',','.'));
         end %fun
-        function out = get_filter_wheel(this)
+        function out = get_filter_wheel(this) % cannot locate this in sample file
             out = this.RawMetaValue{strcmp(this.RawMetaName,'Filter Wheel (Observation)')};
         end %fun
         
         %%
         function out = get_frame_number(this)
-            value = this.RawMetaValue{strcmp(this.RawMetaName,'Frame Count')};
+            value = this.RawMetaValue{strcmp(this.RawMetaName,'Time')};
             out = str2double(value);
         end %fun
-        function out = get_lag_time(this)
+        function out = get_lag_time(this) % cannot locate this in sample file
             value = this.RawMetaValue{strcmp(this.RawMetaName,'t Dimension')};
             strings = strsplit(value);
             out = (str2double(strrep(strings{4},',','.'))-str2double(strrep(strings{2},',','.')))/...
                 str2double(strrep(strings{1},';','')); %[ms]
         end %fun
         function out = get_exposure_time(this)
-            value = this.RawMetaValue{strcmp(this.RawMetaName,'Exposure Time')};
+            value = this.RawMetaValue{strcmp(this.RawMetaName,'Exposure')};
             strings = strsplit(value);
             out = str2double(strrep(strings{1},',','.')); %[ms]
         end %fun
         function out = get_image_height(this)
-            value = this.RawMetaValue{strcmp(this.RawMetaName,'Size (pixel)')};
-            strings = strsplit(value);
-            out = str2double(strrep(strings{1},',','.')); %[µm]
+            value = this.RawMetaValue{strcmp(this.RawMetaName,'Image Height')};
+            out = str2double(value); %[pix]
         end %fun
         function out = get_image_width(this)
-            value = this.RawMetaValue{strcmp(this.RawMetaName,'Size (pixel)')};
-            strings = strsplit(value);
-            out = str2double(strrep(strings{3},',','.')); %[µm]
+            value = this.RawMetaValue{strcmp(this.RawMetaName,'Image Width')};
+            out = str2double(value); %[pix]
         end %fun
         function out = get_pixel_size(this)
             pxSizeX = get_pixel_size_X(this);
-            pxSizeY = get_pixel_size_X(this);
-            
-            if pxSizeX == pxSizeY
+            pxSizeY = get_pixel_size_Y(this);
+            tol = 1e-3;
+            % in sample file pixel sizes differ by .0001 um so comparison
+            % is implemented with tolerance
+            if abs(pxSizeX - pxSizeY) < tol
                 out = pxSizeX;
             else
-                %error
+                error('x and y pixel sizes do not match within 1e-3 um')
             end %if
         end %fun
         function out = get_pixel_size_X(this)
-            value = this.RawMetaValue{strcmp(this.RawMetaName,'Calibration (X)')};
-            strings = strsplit(value);
-            out = str2double(strrep(strings{1},',','.')); %[nm]
+            value = this.RawMetaValue{strcmp(this.RawMetaName,'x')};
+            value = strsplit( value, '*' );
+            value = value(2);
+            out = str2double(strrep(value,'x','')); %[nm]
         end %fun
         function out = get_pixel_size_Y(this)
-            value = this.RawMetaValue{strcmp(this.RawMetaName,'Calibration (Y)')};
-            strings = strsplit(value);
-            out = str2double(strrep(strings{1},',','.')); %[nm]
+            value = this.RawMetaValue{strcmp(this.RawMetaName,'y')};
+            value = strsplit( value, '*' );
+            value = value(2);
+            out = str2double(strrep(value,'x','')); %[nm]
         end %fun
         function out = get_pixel_binning(this)
-            value = this.RawMetaValue{strcmp(this.RawMetaName,'Binning')};
-            strings = strsplit(value);
-            out = str2double(strings{1});
+            value = this.RawMetaValue{strcmp(this.RawMetaName,'BinningX')};
+            out = str2double(value);
         end %fun
         
         %%
-        function out = get_laser_idx(this)
+        function out = get_laser_idx(this) % can get these but need clarification on some details
             switch get_laser_wvlnth(this)
                 case 405
                     out = 1;
@@ -187,14 +256,14 @@ classdef TIRF3MetaReader < handle
                     out = [];
             end %switch
         end %fun
-        function out = get_laser_attenuation(this)
+        function out = get_laser_attenuation(this) % does not appear to be in sample file
             laserIdx = get_laser_idx(this);
             value = this.RawMetaValue{strcmp(this.RawMetaName,...
                 sprintf('Laser #%d Intensity',laserIdx))};
             strings = strsplit(value);
             out = str2double(strrep(strings{1},',','.')); %[%]
         end %fun
-        function P = get_laser_output(this)
+        function P = get_laser_output(this) % derived value from wvlnth and attenuation
             laserWvlnth = get_laser_wvlnth(this);
             x = get_laser_attenuation(this);
             
@@ -235,7 +304,7 @@ classdef TIRF3MetaReader < handle
             
             P = fun(x);
         end %fun
-        function out = get_laser_fiber_position(this)
+        function out = get_laser_fiber_position(this) % cannot locate this in sample file
             wvlnth = get_laser_wvlnth(this);
             %             try
             value = this.RawMetaValue{strcmp(this.RawMetaName,...
@@ -247,11 +316,11 @@ classdef TIRF3MetaReader < handle
             %             end %try
         end %fun
         
-        function out = get_lamp_intensity(this)
+        function out = get_lamp_intensity(this) % found but units are lux rather than volts
             value = this.RawMetaValue{strcmp(this.RawMetaName,...
-                'Lamp Intensity (Transmission)')};
+                'Intensity')};
             strings = strsplit(value);
-            out = str2double(strrep(strings{1},',','.')); %[V]
+            out = str2double(strrep(strings{1},',','.')); %[lux] - need to be converted
         end %fun
     end %methods
 end %class
