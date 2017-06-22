@@ -83,7 +83,7 @@ function [children,ptext,textflag] = parseChildNodes(theNode)
                     %add new element
                     children.(name){index} = childs;
                     if(~isempty(fieldnames(text)))
-                        children.(name){index} = text;
+                        children.(name){index} = text; 
                     end
                     if(~isempty(attr)) 
                         children.(name){index}.('Attributes') = attr; 
