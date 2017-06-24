@@ -69,7 +69,7 @@ function [children,ptext,textflag] = parseChildNodes(theNode)
 
         for count = 1:numChildNodes
             theChild = item(childNodes,count-1);
-            [text,name,attr,childs,textflag] = getNodeData(theChild);
+             [text,name,attr,childs,textflag] = getNodeData(theChild);
             
             if (~strcmp(name,'#text') && ~strcmp(name,'#comment') && ~strcmp(name,'#cdata_dash_section'))
                 %XML allows the same elements to be defined multiple times,

@@ -54,16 +54,8 @@ else
 end
 
 %parse xDoc into a MATLAB structure
-s = parseNetNode(xDoc);
 
-end
-
-% ----- Subfunction parseChildNodes -----
-function [children,ptext,textflag] = parseNetNode(theNode)
-% Recurse over node children.
-children = struct;
-ptext = struct; textflag = 'Text';
-expPlanNode = theNode.getFirstChild;
+expPlanNode = xDoc.getFirstChild;
 
 if(~strcmp(expPlanNode.getTagName, 'expPlan'))
     error('highest node not correct tag "expPlan".')
@@ -76,104 +68,46 @@ else
 end
 %         numChildNodes = getLength(childNodes);
 
-while(~strcmp( childNode.getTagName, 'net' ) )
+while( ~strcmp( childNode.getNodeName, 'net' ) )
     childNode = childNode.getNextSibling;
 end
+netNode = childNode;
+s = parseNode(netNode);
+
+end
+
+% ----- Subfunction parseChildNodes -----
+function nodeStruct = parseNode(theNode)
+% Recurse over node children.
+
+childNodes = getChildNodes(theNode);
+numChildNodes = getLength(childNodes);
 
 for count = 1:numChildNodes
     theChild = item(childNodes,count-1);
-    [text,name,attr,childs,textflag] = getNodeData(theChild);
+    %     [text,name,attr,childs,textflag] = getNodeData(theChild);
+    child_name = theChild.getNodeName;
+    if( strfind( child_name, '#' ) == 1 )
+        continue
+    end
     
-    if (~strcmp(name,'#text') && ~strcmp(name,'#comment') && ~strcmp(name,'#cdata_dash_section'))
-        %XML allows the same elements to be defined multiple times,
-        %put each in a different cell
-        if (isfield(children,name))
-            if (~iscell(children.(name)))
-                %put existsing element into cell format
-                children.(name) = {children.(name)};
-            end
-            index = length(children.(name))+1;
-            %add new element
-            children.(name){index} = childs;
-            if(~isempty(fieldnames(text)))
-                children.(name){index} = text;
-            end
-            if(~isempty(attr))
-                children.(name){index}.('Attributes') = attr;
-            end
-        else
-            %add previously unknown (new) element to the structure
-            children.(name) = childs;
-            if(~isempty(text) && ~isempty(fieldnames(text)))
-                children.(name) = text;
-            end
-            if(~isempty(attr))
-                children.(name).('Attributes') = attr;
-            end
-        end
+    if( strcmp( child_name, 'attribute' ) )
+        [att_name, type, val] = parseAttribute(theChild);
+        nodeStruct.( strrep(att_name, '\s', '_') ).type = type;
+        nodeStruct.( strrep(att_name, '\s', '_') ).val = val;
     else
-        ptextflag = 'Text';
-        if (strcmp(name, '#cdata_dash_section'))
-            ptextflag = 'CDATA';
-        elseif (strcmp(name, '#comment'))
-            ptextflag = 'Comment';
-        end
-        
-        %this is the text in an element (i.e., the parentNode)
-        if (~isempty(regexprep(text.(textflag),'[\s]*','')))
-            if (~isfield(ptext,ptextflag) || isempty(ptext.(ptextflag)))
-                ptext.(ptextflag) = text.(textflag);
-            else
-                %what to do when element data is as follows:
-                %<element>Text <!--Comment--> More text</element>
-                
-                %put the text in different cells:
-                % if (~iscell(ptext)) ptext = {ptext}; end
-                % ptext{length(ptext)+1} = text;
-                
-                %just append the text
-                ptext.(ptextflag) = [ptext.(ptextflag) text.(textflag)];
-            end
-        end
+        child_name = theChild.getAttribute('name');
+        child_node_struct = parseNode(theChild);
+        nodeStruct.(strrep(child_name, '\s', '_')) = child_node_struct; 
     end
     
 end
 end
-end
-
-% ----- Subfunction getNodeData -----
-function [text,name,attr,childs,textflag] = getNodeData(theNode)
-% Create structure of node info.
-
-%make sure name is allowed as structure name
-name = toCharArray(getNodeName(theNode))';
-name = strrep(name, '-', '_dash_');
-name = strrep(name, ':', '_colon_');
-name = strrep(name, '.', '_dot_');
-
-attr = parseAttributes(theNode);
-if (isempty(fieldnames(attr)))
-    attr = [];
-end
-
-%parse child nodes
-[childs,text,textflag] = parseChildNodes(theNode);
-
-if (isempty(fieldnames(childs)) && isempty(fieldnames(text)))
-    %get the data of any childless nodes
-    % faster than if any(strcmp(methods(theNode), 'getData'))
-    % no need to try-catch (?)
-    % faster than text = char(getData(theNode));
-    text.(textflag) = toCharArray(getTextContent(theNode))';
-end
-
-end
 
 % ----- Subfunction parseAttributes -----
-function attributes = parseAttributes(theNode)
+function [name, type, val] = parseAttribute(theNode)
 % Create attributes structure.
 
-attributes = struct;
 if hasAttributes(theNode)
     theAttributes = getAttributes(theNode);
     numAttributes = getLength(theAttributes);
@@ -193,4 +127,20 @@ if hasAttributes(theNode)
         attributes.(attr_name) = str((k(1)+2):(end-1));
     end
 end
+end
+
+% ----- Subfunction getNodeData -----
+function dataStruct = getNodeData(theNode)
+% Create structure of node info.
+
+%make sure name is allowed as structure name
+name = toCharArray(getNodeName(theNode))';
+name = strrep(name, '-', '_dash_');
+name = strrep(name, ':', '_colon_');
+name = strrep(name, '.', '_dot_');
+
+if( strcmp( name, 'node' ) || strcmp( name, 'modifier' ) )
+    dataStruct = parseNode(theNode);
+end
+
 end
