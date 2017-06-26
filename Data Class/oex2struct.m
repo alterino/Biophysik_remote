@@ -1,6 +1,6 @@
 function [ s ] = oex2struct( file )
 %Convert xml file into a MATLAB structure
-% [ s ] = xml2struct( file )
+% [ s ] = oex2struct( file )
 %
 % A file containing:
 % <XMLname attrib1="Some value">
@@ -83,64 +83,74 @@ function nodeStruct = parseNode(theNode)
 childNodes = getChildNodes(theNode);
 numChildNodes = getLength(childNodes);
 
+if( strcmp( theNode.getNodeName, 'edges' ) )
+    fprintf('debug placeholder\n')
+end
+
 for count = 1:numChildNodes
     theChild = item(childNodes,count-1);
     %     [text,name,attr,childs,textflag] = getNodeData(theChild);
     child_name = theChild.getNodeName;
-    if( strfind( child_name, '#' ) == 1 )
+    if( strfind( child_name, '#' ) == 1 ) % checking if first character is '#'
         continue
     end
     
     if( strcmp( child_name, 'attribute' ) )
         [att_name, type, val] = parseAttribute(theChild);
-        nodeStruct.( strrep(att_name, '\s', '_') ).type = type;
-        nodeStruct.( strrep(att_name, '\s', '_') ).val = val;
+        nodeStruct.( strrep(att_name, ' ', '_') ).type = type;
+        nodeStruct.( strrep(att_name, ' ', '_') ).val = val;
     else
-        child_name = theChild.getAttribute('name');
+        if( theChild.hasAttribute('name') )
+            child_name = char( theChild.getAttribute('name') );
+        else
+            child_name = char( theChild.getNodeName );
+        end
         child_node_struct = parseNode(theChild);
-        nodeStruct.(strrep(child_name, '\s', '_')) = child_node_struct; 
+        nodeStruct.(strrep(child_name, ' ', '_')) = child_node_struct;
     end
-    
 end
+
+if( ~exist( 'nodeStruct', 'var' ) )
+    nodeStruct = [];
+%     warning('node structure is empty')
+end
+
 end
 
 % ----- Subfunction parseAttributes -----
 function [name, type, val] = parseAttribute(theNode)
 % Create attributes structure.
 
-if hasAttributes(theNode)
-    theAttributes = getAttributes(theNode);
-    numAttributes = getLength(theAttributes);
-    
-    for count = 1:numAttributes
-        %attrib = item(theAttributes,count-1);
-        %attr_name = regexprep(char(getName(attrib)),'[-:.]','_');
-        %attributes.(attr_name) = char(getValue(attrib));
-        
-        %Suggestion of Adrian Wanner
-        str = toCharArray(toString(item(theAttributes,count-1)))';
-        k = strfind(str,'=');
-        attr_name = str(1:(k(1)-1));
-        attr_name = strrep(attr_name, '-', '_dash_');
-        attr_name = strrep(attr_name, ':', '_colon_');
-        attr_name = strrep(attr_name, '.', '_dot_');
-        attributes.(attr_name) = str((k(1)+2):(end-1));
+name = []; type = []; val = [];
+
+try
+    name = char( theNode.getAttribute('name') );
+catch
+    error('could not find node name')
+end
+childNodes = getChildNodes(theNode);
+numChildNodes = getLength(childNodes);
+
+for count = 1:numChildNodes
+    theChild = item(childNodes,count-1);
+    child_name = theChild.getNodeName;
+    if( strfind( child_name, '#' ) == 1 ) % checking if first character is '#'
+        continue
+    else
+        try
+            type = char( theChild.getNodeName );
+            val = theChild.getAttribute('val');
+        catch
+            if(isempty(type))
+                warning('could not find variable type');
+            end
+            if(isempty(val))
+                warning('could not find value');
+            end
+        end
     end
-end
+    
 end
 
-% ----- Subfunction getNodeData -----
-function dataStruct = getNodeData(theNode)
-% Create structure of node info.
-
-%make sure name is allowed as structure name
-name = toCharArray(getNodeName(theNode))';
-name = strrep(name, '-', '_dash_');
-name = strrep(name, ':', '_colon_');
-name = strrep(name, '.', '_dot_');
-
-if( strcmp( name, 'node' ) || strcmp( name, 'modifier' ) )
-    dataStruct = parseNode(theNode);
-end
 
 end
