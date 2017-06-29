@@ -27,10 +27,6 @@ classdef TIRF3MetaReader < handle
         function load_meta_file(this,filename)
             if exist(filename,'file') == 2
                 fid = fopen(filename);
-                %                 [this.RawMetaName,this.RawMetaValue] = ... % colon (':') used
-                % as delimiter problematic because also used for time
-                % textfile_read_all_param_value(fid,{'=',':'});
-                % similar issue for '-'
                 [this.RawMetaName,this.RawMetaValue] = ...
                     textfile_read_all_param_value(fid,'=');
                 [header_params, header_values] = parse_header(this,fid); % parses header in custom way for
@@ -122,8 +118,8 @@ classdef TIRF3MetaReader < handle
         function out = get_filename(this) % cannot locate this in sample metadata file
             out = this.RawMetaValue{strcmp(this.RawMetaName,'Name')};
         end %fun
-        function out = get_experiment_name(this) % requires use of colon as delimiter
-            out = this.RawMetaValue{strcmp(this.RawMetaName,'Experiment Name')};
+        function out = get_experiment_name(this)
+            out = this.RawMetaValue{strcmp(this.RawMetaName,'Name')};
         end %fun
         
         %%

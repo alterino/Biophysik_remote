@@ -4,8 +4,16 @@ function [ output_args ] = run_full_eval( dic_scan, fluor_scan, img_dims, gmm )
 
 
 
-[bw_img, label_img, cc, stats] = ...
-    process_and_label_DIC( dic_scan, img_dims, wind, gmm  );
+[bw_img, label_img, cc, stats, entropy_img] = ...
+    process_and_label_DIC( dic_scan, img_dims, wind,xmlwrite gmm  );
+
+
+
+end
+
+
+
+
 
 
 
