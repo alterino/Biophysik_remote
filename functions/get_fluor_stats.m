@@ -1,4 +1,4 @@
-function stat_struct = get_flour_stats( img, stripe_bw, cell_bw )
+function stat_struct = get_fluor_stats( img, stripe_bw, cell_bw )
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -12,8 +12,5 @@ nonstripe_bw = and(cell_bw, ~stripe_bw);
 
 stripe_cc = bwconncomp( stripe_bw );
 nonstripe_cc = bwconncomp( nonstripe_bw );
-
-
-
 
 end

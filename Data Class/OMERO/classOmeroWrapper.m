@@ -85,9 +85,9 @@ classdef classOmeroWrapper < handle
                 store.setPixelsId(pixels.getId().getValue(), false);
                 
                 % Upload template for every plane in the image
-                for z = 1 : sizeZ,
+                for z = 1 : sizeZ
                     for c = 1:sizeC
-                        for t = 1: sizeT,
+                        for t = 1: sizeT
                             index = sub2ind([sizeZ sizeC sizeT], z, c, t);
                             store.setPlane(byteArray, z - 1, c - 1, t - 1);
                         end
@@ -96,7 +96,7 @@ classdef classOmeroWrapper < handle
                 store.save(); %save the data
                 store.close(); %close
             catch err
-                client.closeSession();
+                this.Client.closeSession();
                 throw(err);
             end
             % Close the session
