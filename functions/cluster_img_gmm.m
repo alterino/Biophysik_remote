@@ -1,4 +1,4 @@
-function [labeled_img, bw_img] = cluster_img_gmm(img, size_thresh, gmm )
+function [labeled_img, bw_img] = cluster_img_gmm(img, gmm, size_thresh )
 % if stack_dims is [] that means that the image should be assumed to be a
 % single 2D image rather than an array of 2D images composing a larger
 % image
@@ -18,13 +18,21 @@ end
 sorted_idx = temp; clear temp
 
 new_idx = sorted_idx(idx);
-bwInterior = (new_idx > 1);
-cc = bwconncomp(bwInterior);
-if( exist('sizeThresh', 'var') && ~isempty(size_thresh) )
-    bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
-    new_idx(vertcat(cc.PixelIdxList{bSmall})) = 1;
-end
+% bwInterior = (new_idx > 2);
+% cc = bwconncomp(bwInterior);
+% if( exist('sizeThresh', 'var') && ~isempty(size_thresh) )
+%     bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
+%     new_idx(vertcat(cc.PixelIdxList{bSmall})) = 1;
+% end
 labeled_img = new_idx;
-bw_img = imfill( (labeled_img > 1), 'holes' );
+bw_img = (labeled_img > 2);
+bw_img = imerode( bw_img, true(20) );
+% bw_img = imfill( bw_img, 'holes' );
+cc = bwconncomp(bw_img);
+
+if( exist('size_thresh', 'var') && ~isempty(size_thresh) )
+    bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
+    bw_img(vertcat(cc.PixelIdxList{bSmall})) = 0;
+end
 
 end
