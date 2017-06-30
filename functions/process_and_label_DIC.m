@@ -27,16 +27,18 @@ else
         im = img_stack(:,:,i);
         img_ent(:,:,i) = entropyfilt(im, ones(wind));
     end
+    block_dims = dims_scan./img_dims;
     img_ent = img_stack_to_img_2D( img_ent, block_dims );
     fprintf('entropy filtering %i images took %i seconds\n',...
         size(img_stack,3), toc );
 end
 se = strel('disk',9);
 ent_smooth = imclose(img_ent, se);
+% ent_smooth = im
 
 tic
 [label_img, bw_img] = ...
-    cluster_img_gmm( ent_smooth, 1000, gmm );
+    cluster_img_gmm( ent_smooth, gmm, 10000 );
 fprintf('clustering %i images took %i seconds\n', size(img_stack,3), toc );
 
 cc = bwconncomp( bw_img );
