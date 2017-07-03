@@ -13,15 +13,15 @@ if( min( size(bounding_box) ) ~= 1 || max( size(bounding_box) ) ~= 4 )
     error('bounding box must be a vector of length 4');
 elseif( ~isnumeric(bounding_box) )
     error('bounding box must be a numeric array')
-elseif( min( bounding_box ) < 1 ||...
-        bounding_box(1) + bounding_box(3) > scan_dims(2) ||...
-        bounding_box(2) + bounding_box(4) > scan_dims(1) )
+elseif( min( bounding_box ) < 0.5 ||...
+        floor( bounding_box(1) + bounding_box(3) ) > scan_dims(2) ||...
+        floor( bounding_box(2) + bounding_box(4) ) > scan_dims(1) )
     error('dimension mismatch')
 end
 
 
-bb_center_x = bounding_box(1) + bounding_box(3)/2;
-bb_center_y = bounding_box(2) + bounding_box(4)/2;
+bb_center_x = round( bounding_box(1) + bounding_box(3)/2 );
+bb_center_y = round( bounding_box(2) + bounding_box(4)/2 );
 
 
 subimg_topleft = [ min( [ max( [bb_center_x-floor(img_dims(2)/2), 1] ), scan_dims(2)-(img_dims(2)-1) ] ) ,...

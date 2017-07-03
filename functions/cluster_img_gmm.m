@@ -27,7 +27,7 @@ new_idx = sorted_idx(idx);
 labeled_img = new_idx;
 bw_img = (labeled_img > 2);
 bw_img = imerode( bw_img, true(20) );
-% bw_img = imfill( bw_img, 'holes' );
+bw_img = imfill( bw_img, 'holes' );
 cc = bwconncomp(bw_img);
 
 if( exist('size_thresh', 'var') && ~isempty(size_thresh) )

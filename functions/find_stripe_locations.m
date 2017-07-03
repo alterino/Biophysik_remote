@@ -2,8 +2,6 @@ function stripe_centers = find_stripe_locations( thetaD, img_corr, min_dist )
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
-
-
 if(abs(thetaD)>45)
     y_center = ceil(size(img_corr,1)/2);
     center_corr = img_corr(y_center,:);

@@ -9,7 +9,7 @@ img_stats.max = max( max( double( img ) ) );
 
 threshInt = multithresh(img,2);
 
-imgbw = ( img > max(threshInt) );
+imgbw = ( img > min(threshInt) );
 imgbw = medfilt2( imgbw, [4 4] );
 
 se90 = strel('line', 3, 90);

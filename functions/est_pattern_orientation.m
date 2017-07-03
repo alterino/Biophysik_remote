@@ -3,6 +3,11 @@ function [thetaD, pattern, img_corr] = est_pattern_orientation( img, bw_img )
 %   Detailed explanation goes here
 
 cc = bwconncomp(bw_img);
+if( cc.NumObjects == 0 )
+    warning('binary image is all zeros')
+    thetaD = []; pattern = []; img_corr = [];
+    return;
+end
 
 % s = regionprops(cc, 'Area', 'Orientation', 'MajorAxisLength',...
 %     'MinorAxisLength', 'Eccentricity', 'Centroid');
