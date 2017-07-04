@@ -36,8 +36,11 @@ se = strel('disk',9);
 ent_smooth = imclose(img_ent, se);
 
 tic
-[label_img, bw_img] = ...
-    cluster_img_gmm( ent_smooth, gmm, 10000 );
+% gmm clustering being fucked at the moment - clustering zeros of entropy
+% image as belonging to highest cluster... wtf
+% [label_img, bw_img] = ...
+%     cluster_img_gmm( ent_smooth, gmm, 10000 );
+bw_img = cluster_img_threshold( ent_smooth, 2, 5000 );
 fprintf('clustering %i images took %i seconds\n', size(img_stack,3), toc );
 
 cc = bwconncomp( bw_img );

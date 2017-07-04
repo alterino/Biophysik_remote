@@ -1,4 +1,5 @@
-function [labeled_img, bw_img] = cluster_img_gmm(img, gmm, size_thresh )
+% function bw_img = cluster_img_gmm(img, gmm, size_thresh )
+function bw_img = cluster_img_threshold(img, int_thresh, size_thresh)
 % if stack_dims is [] that means that the image should be assumed to be a
 % single 2D image rather than an array of 2D images composing a larger
 % image
@@ -7,7 +8,8 @@ if( length( size(img) ) ~= 2 || min( size(img) ) == 1 )
     error('expected 2D image input');
 end
 
-
+% shit is being weird and clustering completely wrong so eliminating the
+% gmm for now
 num_clusts = length(gmm.mu);
 % img_vec = img(:);
 idx = reshape( cluster(gmm, img(:)), size(img) );
@@ -19,17 +21,17 @@ for j = 1:num_clusts
 end
 sorted_idx = temp; clear temp
 
-new_idx = sorted_idx(idx);
+% new_idx = sorted_idx(idx);
 % bwInterior = (new_idx > 2);
 % cc = bwconncomp(bwInterior);
 % if( exist('sizeThresh', 'var') && ~isempty(size_thresh) )
 %     bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
 %     new_idx(vertcat(cc.PixelIdxList{bSmall})) = 1;
 % end
-labeled_img = new_idx;
-bw_img = (labeled_img > 2);
-bw_img = imerode( bw_img, true(20) );
-bw_img = imfill( bw_img, 'holes' );
+% labeled_img = new_idx;
+% bw_img = (labeled_img > 2);
+bw_img = imbinarize(img, int_thresh);
+% bw_img = imfill( bw_img, 'holes' );
 cc = bwconncomp(bw_img);
 
 if( exist('size_thresh', 'var') && ~isempty(size_thresh) )
