@@ -24,3 +24,8 @@ figure(4), imagesc( rad_bw );
 imtool( rad_bw, [] );
 
 surf( theta, (1:size(rad_bw, 2)), rad_bw );
+
+%%
+figure(4), plot( 1:873, sum_normalized );
+test = find( zero_crossings == 1 );
+hold on, plot( test, sum_normalized(test), 'r*' )
