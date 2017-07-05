@@ -1,4 +1,4 @@
-function stripe_centers = find_stripe_locations( thetaD, img_corr, min_dist )
+function stripe_centers = find_stripe_locations( thetaD, img_corr, min_dist, x_guess )
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -11,7 +11,6 @@ else
     center_corr = img_corr(:,y_center)';
     x_idx = 1:size(img_corr,1);
 end
-
 
 xMat = repmat(x_idx, size(img_corr,1), 1);
 
