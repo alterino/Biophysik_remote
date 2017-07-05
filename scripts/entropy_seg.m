@@ -1,8 +1,9 @@
-clearvars -except testIMG
+clearvars -except testIMG gmm*
 
 % lab path
 imgPATH = 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\DIC_160308_2033.tif';
 outPATH = 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\Processed\';
+img_dim = 1200;
 
 % home path
 % imgPATH = 'D:\OS_Biophysik\DIC_images\DIC_160308_2033.tif';
@@ -10,15 +11,19 @@ outPATH = 'T:\Marino\Microscopy\161027 - DIC Toydata\160308\Sample3\Processed\';
 
 if( ~exist( 'testIMG', 'var' ) )
     testIMG = imread(imgPATH);
+%     if( max(size(testIMG)) == 18000 )
+%         testIMG = imresize( testIMG, 1/2 );
+% %         img_dim = 1/2*img_dim;
+%     end
 end
 
 figure(1);imagesc(testIMG);colormap(gray)
 
 dims = size(testIMG);
 
-numCols = dims(2)/600;
-numRows = dims(1)/600;
-imgStack = uint16(zeros(600, 600, numCols*numRows));
+numCols = dims(2)/img_dim;
+numRows = dims(1)/img_dim;
+imgStack = uint16(zeros(img_dim, img_dim, numCols*numRows));
 
 % segManager = classSegmentationManager;
 
@@ -28,7 +33,7 @@ for i=1:numCols
     for j=1:numRows
         tempIDX = tempIDX + 1;
         imgStack( :,:, tempIDX ) =...
-            uint16( testIMG( 600*(i-1)+1:600*i, 600*(j-1)+1:600*j ) );
+            uint16( testIMG( img_dim*(i-1)+1:img_dim*i, img_dim*(j-1)+1:img_dim*j ) );
     end
 end
 clear tempIDX
@@ -51,12 +56,19 @@ ent_smooth = imclose(img_ent, se);
 figure(3);imagesc(ent_smooth);colormap(gray)
 
 % % this one uses gmm model *************************
-num_clusts = 2;
+num_clusts = 3;
 % tic();
 skip_size = 30;
 ent_vector = ent_smooth(:);
+ent_vector(ent_vector == 0) = [];
 options = statset( 'MaxIter', 200 );
-gmm = fitgmdist(ent_vector(1:skip_size:end), num_clusts, 'replicates',3, 'Options', options);
+toc();
+try
+    gmm = fitgmdist(ent_vector(1:skip_size:end), num_clusts, 'replicates',3, 'Options', options);
+catch
+   load('gmm.mat') 
+end
+
 idx = reshape(cluster(gmm, ent_smooth(:)), size(ent_smooth));
 % toc();
 
@@ -101,8 +113,8 @@ tot_time = toc;
 img_segged = testIMG;
 img_segged( bwperim( ( new_idx > 1 ) ) == 1 ) = max(max(testIMG));
 
-img_segged_stack = img_2D_to_img_stack( img_segged, [600, 600] );
-img_bw_stack = img_2D_to_img_stack( ( new_idx > 1 ), [600, 600] );
+img_segged_stack = img_2D_to_img_stack( img_segged, [img_dim, img_dim] );
+img_bw_stack = img_2D_to_img_stack( ( new_idx > 1 ), [img_dim, img_dim] );
 
 figure(6), imshow( img_segged, [] )
 
@@ -126,7 +138,7 @@ load( ground_truth_file );
 
 
 [ ground_truth_img, cell_cnts, cell_pix_cnts] =...
-    bw_stack_from_roi_cell(ROI_cell, [600 600], [] );
+    bw_stack_from_roi_cell(ROI_cell, [img_dim img_dim], [] );
 % save('img_bw_stack.mat', 'img_bw_stack')
 
 summary_stats = evaluate_seg_results( img_bw_stack, ground_truth_img, ROI_cell );
@@ -144,8 +156,8 @@ cell_detection_rate = detected_cells / ( missed_cells + detected_cells );
 
 temp_idx = [16, 17, 20, 23, 24, 25, 27, 28];
 
-img_stack_classes = img_2D_to_img_stack( new_idx, [600 600] );
-img_stack_ent = img_2D_to_img_stack( img_ent, [600 600] );
+img_stack_classes = img_2D_to_img_stack( new_idx, [img_dim img_dim] );
+img_stack_ent = img_2D_to_img_stack( img_ent, [img_dim img_dim] );
 
 out_dir = 'T:\Marino\presentation_files\';
 

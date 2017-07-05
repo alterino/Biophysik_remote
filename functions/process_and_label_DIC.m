@@ -1,5 +1,5 @@
-function [bw_img, cc, stats, img_ent] = ...
-    process_and_label_DIC( dic_scan, img_dims, wind, gmm )
+function [bw_img, cc, stats] = ...
+    process_and_label_DIC( dic_scan, img_dims, wind )
 %PROCESS_AND_LABEL_DIC takes a full DIC scan (dic_scan)
 % assumed to be a slide scan composed of smaller images of
 % dimension specified by img_dims and returns labeled images as well as
@@ -38,13 +38,13 @@ ent_smooth = imclose(img_ent, se);
 tic
 % gmm clustering being fucked at the moment - clustering zeros of entropy
 % image as belonging to highest cluster... wtf
-% [label_img, bw_img] = ...
-%     cluster_img_gmm( ent_smooth, gmm, 10000 );
-bw_img = cluster_img_threshold( ent_smooth, 2, 5000 );
+[label_img, bw_img] = ...
+    cluster_img_threshold( ent_smooth, 2.1, 10000 );
+% bw_img = cluster_img_gmm( ent_smooth, 2, 5000 );
 fprintf('clustering %i images took %i seconds\n', size(img_stack,3), toc );
 
 cc = bwconncomp( bw_img );
 stats = get_cc_regionprops(cc);
 
-fprintf('total time after filtering - %i seconds\n', toc );
+fprintf( 'total time after filtering - %i seconds\n', toc );
 

@@ -11,8 +11,12 @@ end
 % shit is being weird and clustering completely wrong so eliminating the
 % gmm for now
 num_clusts = length(gmm.mu);
-% img_vec = img(:);
-idx = reshape( cluster(gmm, img(:)), size(img) );
+img_vec = img(:);
+idx = cluster(gmm, img_vec);
+% dealing with strange bug where zeros are classified as highest class
+min_class = find( [gmm.mu] = min([gmm.mu]) );
+idx(img_vec==0) = min_class;
+idx = reshape( idx, size(img) );
 % Order the clustering so that the indices are from min to max cluster mean
 [~,sorted_idx] = sort(gmm.mu);
 temp = zeros(num_clusts,1);

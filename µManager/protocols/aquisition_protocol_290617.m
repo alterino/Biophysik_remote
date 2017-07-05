@@ -14,7 +14,8 @@ cleanup_filter_dropdown_pos(objMicMan.CleanupFilter)
 
 scan_and_lock_into_auto_focus(objMicMan)
 set_pixel_binning(objMicMan,1)
-set_camera_ROI(objMicMan,[400 400 1200 1200])
+cam_ROI_BB = [400 400 1200 1200];
+set_camera_ROI(objMicMan,cam_ROI_BB)
 set_central_xy_pos(objMicMan)
 
 fac = 15;
@@ -34,15 +35,28 @@ imwrite(uint16(max(0,scanDIC)),sprintf('%s_%s.tif','DIC',timeStamp),'compression
 save(sprintf('%s_%s_%s.mat','DIC',timeStamp,'META'),'metaDIC')
 
 %% Fluorescense
-wvlnth = 561;
-set_exposure_time(objMicMan,100) %[ms]
+% wvlnth = 561;
+% set_exposure_time(objMicMan,100) %[ms]
+% 
+% [scanFluor,metaFluor] = acq_path_fluorescense(objMicMan,x,y,wvlnth); %acqures images along the path
+% scanFluor = stitch_img(objMicMan,scanFluor,bad);
+% 
+% timeStamp = datestr(now,'yymmdd_HHMM');
+% imwrite(uint16(max(0,scanFluor)),sprintf('%s_%d_%s.tif','Fluor',wvlnth,timeStamp),'compression','none')
+% save(sprintf('%s_%d_%s_%s.mat','Fluor',wvlnth,timeStamp,'META'),'metaFluor')
+% 
+% dic_scan = uint16(max(0, scanDIC));
+% fluor_scan = uint16(max(0,scanFluor));
 
-[scanFluor,metaFluor] = acq_path_fluorescense(objMicMan,x,y,wvlnth); %acqures images along the path
-scanFluor = stitch_img(objMicMan,scanFluor,bad);
+% the above needs to be replaced with acquiring only images in ROIs
 
-timeStamp = datestr(now,'yymmdd_HHMM');
-imwrite(uint16(max(0,scanFluor)),sprintf('%s_%d_%s.tif','Fluor',wvlnth,timeStamp),'compression','none')
-save(sprintf('%s_%d_%s_%s.mat','Fluor',wvlnth,timeStamp,'META'),'metaFluor')
+wind = 9;
+[bw_img, cc, stats] = ...
+    process_and_label_DIC( scanDIC, cam_ROI_BB(3:4) , wind );
+
+% insert fluorescence image acquisition here
+
+
 
 %%
 set_auto_focus_state(objMicMan,0)
