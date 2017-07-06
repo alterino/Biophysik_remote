@@ -26,6 +26,7 @@ dy_dx = diff( sum_normalized )./( diff( x_idx ) );
 sign_vec = sign(dy_dx);
 sign_vec(sign_vec == 0) = 1;
 zero_crossings = abs( diff(sign_vec) );
+relative_extrema = find( zero_crossings > 0 );
 
 
 figure(2), imagesc(corr_radon);

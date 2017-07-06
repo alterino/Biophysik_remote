@@ -1,12 +1,19 @@
 
 if( ~exist( 'img', 'var' ) )
-    img = imread('D:\OS_Biophysik\Microscopy\Raw Images for Michael\higher signal to noise\sample 1\cell 3 after 488 20% LP.tif');
+    img = imread('T:\Marino\Microscopy\Raw Images for Michael\higher signal to noise\sample 1\cell 3 after 488 20% LP.tif');
 end
 [bw_img, img_stats] = threshold_fluor_img( img, 1000 );
 
 [thetaD, pattern, img_corr, x_guess] = est_pattern_orientation( img, bw_img );
 
 stripe_centers = find_stripe_locations( thetaD, img_corr, 80, x_guess );
+
+%%
+
+[bw_img, cc, stats] = ...
+    process_and_label_DIC( dic_scan, img_dims, wind );
+
+
 
 
 %%
@@ -29,3 +36,4 @@ surf( theta, (1:size(rad_bw, 2)), rad_bw );
 figure(4), plot( 1:873, sum_normalized );
 test = find( zero_crossings == 1 );
 hold on, plot( test, sum_normalized(test), 'r*' )
+

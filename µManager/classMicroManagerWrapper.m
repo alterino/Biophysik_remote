@@ -927,10 +927,12 @@ classdef classMicroManagerWrapper < handle
         %------ Rectangular scanning
         function [x,y,bad] = set_rectangular_path(this,numX,numY)
             %calculate stepsize to produce no overlap
-            pxSize = get_img_px_size(this); %[µm]
-            imgWidth = this.CoreAPI.getImageWidth()*pxSize;
-            imgHeight = this.CoreAPI.getImageHeight()*pxSize;
-            
+%             pxSize = get_img_px_size(this); %[µm]
+            pxSize = 0.108; %[µm]
+%             imgWidth = this.CoreAPI.getImageWidth()*pxSize;
+%             imgHeight = this.CoreAPI.getImageHeight()*pxSize;
+            imgWidth = 1200*pxSize; imgHeight = 1200*pxSize;
+
             totalHeight = numY*imgHeight;
             totalWidth = numX*imgWidth;
             

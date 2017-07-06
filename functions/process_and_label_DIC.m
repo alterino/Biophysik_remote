@@ -14,14 +14,19 @@ if( mod( dims_scan(1), img_dims(1))~= 0 ||...
     error('image dimensions do not divide scan dimensions evenly')
 end
 tic
-if( ~exist('gmm', 'var') || isempty(gmm) )
+% if( ~exist('gmm', 'var') || isempty(gmm) )
+if( 0 ) % just getting rid of this condition temporarily
     stack_dims = size(dic_scan)./img_dims;
     img_stack = img_2D_to_img_stack(dic_scan, img_dims);
     [gmm, img_ent] = generate_gmm_entropy(img_stack, stack_dims, wind, 3);
     fprintf('entropy filtering and gmm generation for %i images took %i seconds\n',...
         size(img_stack,3), toc );
 else
-    img_stack = img_2D_to_img_stack(dic_scan, img_dims);
+    if( size( dic_scan, 1 ) ~= img_dims(1) || size(dic_scan, 2) ~= img_dims(2) )
+        img_stack = img_2D_to_img_stack(dic_scan, img_dims);
+    else
+        img_stack = dic_scan;
+    end
     img_ent = zeros( size(img_stack) );
     for i = 1:size(img_stack,3)
         im = img_stack(:,:,i);
@@ -38,8 +43,8 @@ ent_smooth = imclose(img_ent, se);
 tic
 % gmm clustering being fucked at the moment - clustering zeros of entropy
 % image as belonging to highest cluster... wtf
-[label_img, bw_img] = ...
-    cluster_img_threshold( ent_smooth, 2.1, 10000 );
+% [label_img, bw_img] = ...
+bw_img = cluster_img_threshold( ent_smooth, 2.1, 10000 );
 % bw_img = cluster_img_gmm( ent_smooth, 2, 5000 );
 fprintf('clustering %i images took %i seconds\n', size(img_stack,3), toc );
 

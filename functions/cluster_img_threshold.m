@@ -8,22 +8,22 @@ if( length( size(img) ) ~= 2 || min( size(img) ) == 1 )
     error('expected 2D image input');
 end
 
-% shit is being weird and clustering completely wrong so eliminating the
-% gmm for now
-num_clusts = length(gmm.mu);
-img_vec = img(:);
-idx = cluster(gmm, img_vec);
-% dealing with strange bug where zeros are classified as highest class
-min_class = find( [gmm.mu] = min([gmm.mu]) );
-idx(img_vec==0) = min_class;
-idx = reshape( idx, size(img) );
-% Order the clustering so that the indices are from min to max cluster mean
-[~,sorted_idx] = sort(gmm.mu);
-temp = zeros(num_clusts,1);
-for j = 1:num_clusts
-    temp(j) = find( sorted_idx == j );
-end
-sorted_idx = temp; clear temp
+% % shit is being weird and clustering completely wrong so eliminating the
+% % gmm for now
+% num_clusts = length(gmm.mu);
+% img_vec = img(:);
+% idx = cluster(gmm, img_vec);
+% % dealing with strange bug where zeros are classified as highest class
+% min_class = find( [gmm.mu] == min([gmm.mu]) );
+% idx(img_vec==0) = min_class;
+% idx = reshape( idx, size(img) );
+% % Order the clustering so that the indices are from min to max cluster mean
+% [~,sorted_idx] = sort(gmm.mu);
+% temp = zeros(num_clusts,1);
+% for j = 1:num_clusts
+%     temp(j) = find( sorted_idx == j );
+% end
+% sorted_idx = temp; clear temp
 
 % new_idx = sorted_idx(idx);
 % bwInterior = (new_idx > 2);
