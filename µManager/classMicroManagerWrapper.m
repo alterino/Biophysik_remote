@@ -927,12 +927,12 @@ classdef classMicroManagerWrapper < handle
         %------ Rectangular scanning
         function [x,y,bad] = set_rectangular_path(this,numX,numY)
             %calculate stepsize to produce no overlap
-%             pxSize = get_img_px_size(this); %[µm]
+            %             pxSize = get_img_px_size(this); %[µm]
             pxSize = 0.108; %[µm]
-%             imgWidth = this.CoreAPI.getImageWidth()*pxSize;
-%             imgHeight = this.CoreAPI.getImageHeight()*pxSize;
+            %             imgWidth = this.CoreAPI.getImageWidth()*pxSize;
+            %             imgHeight = this.CoreAPI.getImageHeight()*pxSize;
             imgWidth = 1200*pxSize; imgHeight = 1200*pxSize;
-
+            
             totalHeight = numY*imgHeight;
             totalWidth = numX*imgWidth;
             
@@ -949,6 +949,38 @@ classdef classMicroManagerWrapper < handle
             x(bad) = [];
             y(bad) = [];
         end %fun
+        
+        function [imgPtsY, imgPtsX] = image_centers_to_idx( this, x, y )
+            if( length(x) > 1 || length(y) > 1 )
+                error('x and y should be scalar inputs')
+            end
+            
+            pxSize = .108;
+            
+            imgWidth = this.CoreAPI.getImageWidth()*pxSize;
+            imgHeight = this.CoreAPI.getImageHeight()*pxSize;
+            
+            x_start_idx = ( ( x - this.XYStageCtr(1) + totalWidth/2)/pxSize - imgWidth/2 )/imgWidth + 1;
+            y_start_idx = ( ( y - this.XYStageCtr(2) + totalHeight/2)/pxSize - imgHeight/2 )/imgHeight + 1;
+            
+            imgPtsX = x_start_idx:imgWidth;
+            imgPtsY = y_start_idx:imgHeight;
+        end
+        
+        function [x_scan, y_scan] = image_center_to_scan_center( this, x_img, y_img, numX, numY )
+
+            
+            pxSize = .108;
+            
+            imgWidth = this.CoreAPI.getImageWidth()*pxSize;
+            imgHeight = this.CoreAPI.getImageHeight()*pxSize;
+            totalWidth = numX*imgWidth;
+            totalHeight = numY*imgHeight;
+            
+            x_scan = x_img*pxSize - totalWidth/2;
+            y_scan = y_img*pxSize - totalWidth/2;
+            
+        end
         
         function [img,x,y,img_] = acq_rectangular_path_DIC(this,numX,numY)
             [x,y,bad] = set_rectangular_path(this,numX,numY); %[µm] generates the path coordinates using non-overlapping steps
@@ -995,6 +1027,9 @@ classdef classMicroManagerWrapper < handle
                 pause(0.5) %delay for the auto-focus to adapt
                 
                 [img{idxPos,1},meta(idxPos,1)] = snap_img_DIC(this); %acquire image
+                
+                testX = ( ( X - this.XYStageCtr(1) + totalWidth/2)/pxSize - imgWidth/2 )/imgWidth + 1;
+                testY = ( ( Y - this.XYStageCtr(2) + totalHeight/2)/pxSize - imgHeight/2 )/imgHeight + 1;
                 
                 [hImg,~,hFig] = classMicroManagerWrapper.live_acquisition(img{idxPos,1},hImg);
                 sprintf('Acquisition: %d/%d',idxPos,numFrame)
@@ -1748,12 +1783,12 @@ classdef classMicroManagerWrapper < handle
             max_vals = data(loc_max);
             dists = diff(loc_max)*sin(phiD);
             cnt = 1;
-
+            
             while( any( dists < min_dist ) )
                 [~,sorted_idx] = sort(max_vals);
                 sorted_idx = fliplr(sorted_idx);
                 max_idx = sorted_idx(cnt);
-
+                
                 while( max_idx > 1 && dists(max_idx-1)<min_dist )
                     loc_max(max_idx-1) = [];
                     max_idx = max_idx-1;
@@ -2166,13 +2201,13 @@ classdef classMicroManagerWrapper < handle
             
         end
         function [cc, keep_idx] = remove_oversized_regions( cc, dims )
-        %REMOVE_OVERSIZED_REGIONS takes a connected components structure as
-        % returned from bwconncomp(BW) function and removes any component that does
-        % not fit in the bounding box defined by dims
-        %   cc - a connected components structure from bwconncomp(BW)
-        %   dims - dimensions of the specified bounding box in [
+            %REMOVE_OVERSIZED_REGIONS takes a connected components structure as
+            % returned from bwconncomp(BW) function and removes any component that does
+            % not fit in the bounding box defined by dims
+            %   cc - a connected components structure from bwconncomp(BW)
+            %   dims - dimensions of the specified bounding box in [
             cc_props = regionprops(cc, 'BoundingBox');
-
+            
             keep_idx = [];
             for i = 1:length( cc_props )
                 bnd_box = cc_props(i).BoundingBox;
@@ -2180,26 +2215,26 @@ classdef classMicroManagerWrapper < handle
                     keep_idx = [keep_idx; i];
                 end
             end
-
+            
             cc = cc(keep_idx);
             cc.PixelIdxList = cc.PixelIdxList(keep_idx);
             cc.NumObjects = length(keep_idx);
         end
         function class_vec = classify_ROIs( stat_vec, thresh )
-        %CLASSIFY_ROIS takes a vector stat_vec and a threshold thres and classifies
-        % entries in stat_vec according to the specify threshold with 'true'
-        % corresponding to the higher-valued class
-        % thresh - a scalar threshold
+            %CLASSIFY_ROIS takes a vector stat_vec and a threshold thres and classifies
+            % entries in stat_vec according to the specify threshold with 'true'
+            % corresponding to the higher-valued class
+            % thresh - a scalar threshold
             if( numel(thresh) ~= 1 )
                 error('threshold must be scalar value')
             end
             if( ~isnumeric(thresh) )
                 error('threshold must be numeric value')
             end
-
+            
             class_vec = (stat_vec > thresh);
         end
-
+        
         % old DIC functions - can be cleaned and maybe removed
         function [imgOut, imgOutScld] =...
                 lowpassFFT(this, img, uprbound, deltax, deltay)

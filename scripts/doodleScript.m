@@ -2,11 +2,12 @@
 if( ~exist( 'img', 'var' ) )
     img = imread('T:\Marino\Microscopy\Raw Images for Michael\higher signal to noise\sample 1\cell 3 after 488 20% LP.tif');
 end
+img_dims = size(img);
 [bw_img, img_stats] = threshold_fluor_img( img, 1000 );
 
 [thetaD, pattern, img_corr, x_guess] = est_pattern_orientation( img, bw_img );
 
-stripe_centers = find_stripe_locations( thetaD, img_corr, 80, x_guess );
+stripe_centers = find_stripe_locations( thetaD, img_corr, img_dims );
 
 %%
 
