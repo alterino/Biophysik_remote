@@ -1,6 +1,8 @@
-function stripe_centers = find_stripe_locations( thetaD, img_corr, min_dist, x_guess )
+function [x, x_p, y, theta_update] = find_stripe_locations( thetaD, img, pattern, img_dims )
 %UNTITLED Summary of this function goes here
-%   Detailed explanation goes here
+%   img_dims should be in [row col] format
+
+img_corr = conv2( double(img), double(pattern), 'same');
 
 if(thetaD>0)
     phiD = thetaD-90;
@@ -8,7 +10,7 @@ else
     phiD = thetaD+90;
 end
 
-angle_vec = phiD-15:.1:phiD+15;
+angle_vec = phiD-10:.1:phiD+10;
 if( ~isempty( find( angle_vec > 90, 1) ) )
     angle_vec( angle_vec > 90 ) = angle_vec-180;
 end
@@ -18,7 +20,6 @@ end
 
 [corr_radon, xp] = radon( img_corr, angle_vec );
 corr_radon_sum = sum( corr_radon, 2 );
-% sum_normalized = corr_radon_sum*1000/sum(corr_radon_sum);
 sum_normalized = corr_radon_sum;
 
 x_idx = (1:length(sum_normalized))';
@@ -33,14 +34,29 @@ zero_crossings( zero_pts - 1 ) = 0;
 
 relative_maxima = xp( find( zero_crossings < 0 ) + 1 );
 relative_minima = xp( find( zero_crossings > 0 ) + 1 );
+[m, i] = max( corr_radon, [], 2 );
+rad_max_angles = angle_vec( i( find( zero_crossings < 0 ) + 1 ) );
+rad_vals = m( find( zero_crossings < 0 ) + 1 );
 
-figure(2), imagesc(corr_radon);
+phi_update = mean( rad_max_angles );
+if( phi_update > 0 )
+    theta_update = phi_update - 90;
+else
+    theta_update = phi_update + 90;
+end
+% max_midpoint_dists = relative_maxima - length(corr_radon_sum)/2;
+% min_midpoint_dists = relative_minima - length(corr_radon_sum)/2;
+img_center = img_dims/2;
+x = img_center(2) + relative_maxima*cosd(phiD);
+y = img_center(1) - relative_maxima*sind(phiD);
+x_p = x - ( y - img_center(1) )/(-tand(thetaD));
 
-midpoint = length(corr_radon_sum)/2;
+x_test = img_center(2) + relative_minima*cosd(phiD);
+y_test = img_center(1) - relative_minima*sind(phiD);
 
 
-
-
+figure, imagesc( corr_radon );
+figure, plot( xp, sum_normalized, 'g-');
 
 % if(abs(thetaD)>45)
 %     y_center = ceil(size(img_corr,1)/2);

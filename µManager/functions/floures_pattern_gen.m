@@ -16,6 +16,6 @@ strip_temp = ones( img_dims(1), str_widt );
         pattern_temp = [pattern_temp, space_temp, strip_temp];
     end
     
-    pattern_temp = [pattern_temp, space_temp];
+%     pattern_temp = [pattern_temp, space_temp];
 end
 
