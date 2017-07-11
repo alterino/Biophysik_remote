@@ -1,4 +1,4 @@
-function [thetaD, pattern, img_corr, x_guess, width_guess] = est_pattern_orientation( img, bw_img )
+function [thetaD, pattern, x_guess, width_guess] = est_pattern_orientation( img, bw_img )
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -74,6 +74,5 @@ figure, plot( var_ang, corr_max, 'g-'), title('maximum correlation vs theta diff
 width_guess = s(k).MinorAxisLength;
 thetaD = thetaD + theta_diff_votemax;
 pattern = imrotate(pattern, -(90-thetaD));
-
 
 end

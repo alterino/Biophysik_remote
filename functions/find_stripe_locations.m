@@ -2,6 +2,31 @@ function [x, x_p, y, theta_update] = find_stripe_locations( thetaD, img, pattern
 %UNTITLED Summary of this function goes here
 %   img_dims should be in [row col] format
 
+% patter(pattern==0) = -1;
+
+% if( thetaD < 0 )
+%     img = imrotate( img, -(90 + thetaD) );
+% else
+%     img = imrotate( img, 90 - thetaD );
+% end
+
+% [row, col] = find( pattern == 1 );
+% [~,idx_sorted] = sort( col  );
+% row = row(idx_sorted);
+% col = col(idx_sorted);
+% 
+% [~,idx_unique,~] = unique(row);
+% 
+% row = row(idx_unique);
+% col = col(idx_unique);
+% 
+% row(col==1) = [];
+% col(col==1) = [];
+% temp_idx = sub2ind( size( pattern ), row, col );
+% pattern(temp_idx) = -1;
+
+% pattern = [ -1*ones( size( img, 1), 1), ones( size(img, 1), 1 ) ];
+
 img_corr = conv2( double(img), double(pattern), 'same');
 
 if(thetaD>0)

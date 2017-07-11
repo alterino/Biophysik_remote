@@ -9,6 +9,12 @@ function [bw_img, cc, stats] = ...
 % load('gmm.mat')
 
 dims_scan = size( dic_scan );
+% in case the dimension is specified for a square image as one dimension
+if( length( img_dims ) == 1 )
+    img_dims = [img_dims, img_dims];
+elseif( length( img_dims ) > 2 )
+    error('dimensions should be consistent with a 2D image')
+end
 if( mod( dims_scan(1), img_dims(1))~= 0 ||...
         mod( dims_scan(2), img_dims(2) ~= 0 ) )
     error('image dimensions do not divide scan dimensions evenly')
@@ -41,8 +47,8 @@ se = strel('disk',9);
 ent_smooth = imclose(img_ent, se);
 
 tic
-% gmm clustering being fucked at the moment - clustering zeros of entropy
-% image as belonging to highest cluster... wtf
+% gmm clustering not effective because variance of lower-mean group is too
+% low and variance of higher-mean cluster is too high
 % [label_img, bw_img] = ...
 bw_img = cluster_img_threshold( ent_smooth, 2.1, 10000 );
 % bw_img = cluster_img_gmm( ent_smooth, 2, 5000 );

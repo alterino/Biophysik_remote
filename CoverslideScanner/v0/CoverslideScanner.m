@@ -21,6 +21,7 @@ classdef CoverslideScanner < handle
             'ScanSize',10,...
             'LaserWvlnth',405) %[nm]
         
+        Analysis = struct([]);
         
         MICMAN
     end %properties
@@ -750,6 +751,9 @@ classdef CoverslideScanner < handle
             end %if
         end %fun
         
+        function dic_scan = get_dic_scan_img(this)
+           dic_scan = this.Acq.imgOV;
+        end
         function get_dic_bg(this)
             set_filter_revolver_position(this.MICMAN,5)
                     set_cleanup_filter_set(this.MICMAN.CleanupFilter,5) %remove any cleanup filter
@@ -1251,5 +1255,16 @@ classdef CoverslideScanner < handle
                 end %switch
             end %if
         end %fun
+        
+        %% analysis
+        function eval_DIC_channel( this, wind )
+            dic_scan = get_dic_scan_img(this);
+            img_dims = get_image_size(this);
+            wind = 9;
+            [bw_img, cc, stats] = ...
+                process_and_label_DIC( dic_scan, img_dims, wind );
+        end
+        
+        
     end %methods
 end %classdef

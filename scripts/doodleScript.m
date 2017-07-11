@@ -6,7 +6,7 @@ img_dims = size(img);
 [bw_img, img_stats] = threshold_fluor_img( img, 1000 );
 
 
-[thetaD, pattern, img_corr, x_guess, width_guess] = est_pattern_orientation( img, bw_img );
+[thetaD, pattern, x_guess, width_guess] = est_pattern_orientation( img, bw_img );
 
 [x, x_p, y, theta_update] = find_stripe_locations( thetaD, img, pattern, img_dims );
 stripe_bw = ...
@@ -17,13 +17,14 @@ stripe_bw = ...
     process_and_label_DIC( dic_scan, img_dims, wind );
 
 
-
+img_corr = conv2( double(img), double(pattern) );
 %%
 figure(1), cla
 figure(1), imshow( bw_img );
 figure(2), imshow( pattern );
 figure(3), imshow( img, [] );
 figure(6), imshow( stripe_bw, [] )
+figure(8), imagesc( img_corr );
 perim = bwperim( stripe_bw );
 temp = img; temp(perim) = max(max(temp));
 figure(7), imshow( temp, [] )

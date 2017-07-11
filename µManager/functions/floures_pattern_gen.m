@@ -12,6 +12,8 @@ pattern_temp = [];
 space_temp = zeros( img_dims(1), sp_widt );
 strip_temp = ones( img_dims(1), str_widt );
 
+pattern_temp = space_temp;
+
     for i=1:numstrps
         pattern_temp = [pattern_temp, space_temp, strip_temp];
     end
