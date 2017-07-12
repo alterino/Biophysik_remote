@@ -1,4 +1,4 @@
-function [x, x_p, y, theta_update] = find_stripe_locations( thetaD, img, pattern, img_dims )
+function [x, x_p, y] = find_stripe_locations( thetaD, img, pattern, img_dims )
 %UNTITLED Summary of this function goes here
 %   img_dims should be in [row col] format
 
@@ -12,10 +12,10 @@ end
 
 angle_vec = phiD-10:.1:phiD+10;
 if( ~isempty( find( angle_vec > 90, 1) ) )
-    angle_vec( angle_vec > 90 ) = angle_vec-180;
+    angle_vec( angle_vec > 90 ) = angle_vec( angle_vec > 90 )-180;
 end
 if( ~isempty( find( angle_vec < -90, 1) ) )
-    angle_vec( angle_vec < -90 ) = angle_vec+180;
+    angle_vec( angle_vec < -90 ) = angle_vec( angle_vec < -90 )+180;
 end
 
 [corr_radon, xp] = radon( img_corr, angle_vec );
@@ -34,16 +34,16 @@ zero_crossings( zero_pts - 1 ) = 0;
 
 relative_maxima = xp( find( zero_crossings < 0 ) + 1 );
 relative_minima = xp( find( zero_crossings > 0 ) + 1 );
-[m, i] = max( corr_radon, [], 2 );
-rad_max_angles = angle_vec( i( find( zero_crossings < 0 ) + 1 ) );
-rad_vals = m( find( zero_crossings < 0 ) + 1 );
-
-phi_update = mean( rad_max_angles );
-if( phi_update > 0 )
-    theta_update = phi_update - 90;
-else
-    theta_update = phi_update + 90;
-end
+% [m, i] = max( corr_radon, [], 2 );
+% rad_max_angles = angle_vec( i( find( zero_crossings < 0 ) + 1 ) );
+% rad_vals = m( find( zero_crossings < 0 ) + 1 );
+% 
+% phi_update = mean( rad_max_angles );
+% if( phi_update > 0 )
+%     theta_update = phi_update - 90;
+% else
+%     theta_update = phi_update + 90;
+% end
 % max_midpoint_dists = relative_maxima - length(corr_radon_sum)/2;
 % min_midpoint_dists = relative_minima - length(corr_radon_sum)/2;
 img_center = img_dims/2;

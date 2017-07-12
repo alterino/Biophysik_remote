@@ -4,9 +4,9 @@ function bw_img = cluster_img_threshold(img, int_thresh, size_thresh)
 % single 2D image rather than an array of 2D images composing a larger
 % image
 
-if( length( size(img) ) ~= 2 || min( size(img) ) == 1 )
-    error('expected 2D image input');
-end
+% if( length( size(img) ) ~= 2 || min( size(img) ) == 1 )
+%     error('expected 2D image input');
+% end
 
 % % shit is being weird and clustering completely wrong so eliminating the
 % % gmm for now
@@ -34,14 +34,28 @@ end
 % end
 % labeled_img = new_idx;
 % bw_img = (labeled_img > 2);
-bw_img = imbinarize(img, int_thresh);
-bw_img = imopen( bw_img, strel( 'disk', 4 ) );
-% bw_img = imfill( bw_img, 'holes' );
-cc = bwconncomp(bw_img);
-
-if( exist('size_thresh', 'var') && ~isempty(size_thresh) )
-    bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
-    bw_img(vertcat(cc.PixelIdxList{bSmall})) = 0;
+if( length( size(img ) ) < 3 )
+    bw_img = imbinarize(img, int_thresh);
+    bw_img = imopen( bw_img, strel( 'disk', 4 ) );
+    cc = bwconncomp(bw_img);
+    
+    if( exist('size_thresh', 'var') && ~isempty(size_thresh) )
+        bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
+        bw_img(vertcat(cc.PixelIdxList{bSmall})) = 0;
+    end
+else
+    bw_img = zeros( size( img ), 'logical' );
+    for i = 1:size(img,3)
+        temp = imbinarize( img(:,:,i), int_thresh );
+        cc = bwconncomp(temp);
+        if( exist('size_thresh', 'var') && ~isempty(size_thresh) )
+            bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
+            temp(vertcat(cc.PixelIdxList{bSmall})) = 0;
+        end
+        bw_img(:,:,i) = temp;
+    end
 end
+% bw_img = imfill( bw_img, 'holes' );
+
 
 end

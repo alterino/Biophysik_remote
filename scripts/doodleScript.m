@@ -3,19 +3,21 @@
 if( ~exist( 'this', 'var' ) )
     this = CoverslideScanner;
 end
-% temp_img = imread('D:\OS_Biophysik\Microscopy\170706\DIC_170706_1455.tif' );
-temp_img = imread('T:\Marino\Microscopy\170706\DIC_170706_1455.tif' );
+if( ~exist( 'temp_img', 'var' ) )
+    temp_img = imread('D:\OS_Biophysik\Microscopy\170706\DIC_170706_1455.tif' );
+    % temp_img = imread('T:\Marino\Microscopy\170706\DIC_170706_1455.tif' );
+end
 temp_img_stack = img_2D_to_img_stack( temp_img, [1200 1200] );
 data_type = class( temp_img );
 img_resize = zeros( 600, 600, 225, data_type );
 
 for i = 1:size( temp_img_stack, 3 )
     
-   figure(1), imshow( temp_img_stack(:,:,i), [] ) 
+    %    figure(1), imshow( temp_img_stack(:,:,i), [] )
     
-   img_resize(:,:,i) = imresize( temp_img_stack(:,:,i), 1/2 );
-   
-    figure(2), imshow( img_resize(:,:,i), [] );
+    img_resize(:,:,i) = imresize( temp_img_stack(:,:,i), 1/2 );
+    
+    %     figure(2), imshow( img_resize(:,:,i), [] );
     
 end
 
@@ -34,15 +36,15 @@ test5 = img_2D_to_img_stack( bw_img2, [600 600] );
 
 figure(2)
 for i = 1:size( test1, 3 )
-   perim1 = bwperim( test2(:,:,i) );
-   perim2 = bwperim( test5(:,:,i) );
-   temp1 = test1(:,:,i); temp1( perim1 ) = max(max(temp1));
-   temp2 = test1(:,:,i); temp2( perim2 ) = max(max(temp2));
-   figure(2), subplot( 1,2,1 ), imshow( temp1, [] )
-   subplot( 1,2,2 ), imshow( test4(:,:,i), [] )
-      figure(3), subplot( 1,2,1 ), imshow( temp2, [] )
-   subplot( 1,2,2 ), imshow( test3(:,:,i), [] )
- pause
+    perim1 = bwperim( test2(:,:,i) );
+    perim2 = bwperim( test5(:,:,i) );
+    temp1 = test1(:,:,i); temp1( perim1 ) = max(max(temp1));
+    temp2 = test1(:,:,i); temp2( perim2 ) = max(max(temp2));
+    figure(2), subplot( 1,2,1 ), imshow( temp1, [] )
+    subplot( 1,2,2 ), imshow( test4(:,:,i), [] )
+    figure(3), subplot( 1,2,1 ), imshow( temp2, [] )
+    subplot( 1,2,2 ), imshow( test3(:,:,i), [] )
+    pause
 end
 
 %%
@@ -77,9 +79,9 @@ temp = img; temp(perim) = max(max(temp));
 figure(7), imshow( temp, [] )
 y_p = size(img,2)/2*ones(length(x_p),1);
 figure(7), hold on, plot( x_p, y_p , 'r*',...
-                            x, y, 'b*')
+    x, y, 'b*')
 
-%% 
+%%
 
 tic
 theta = 0:.1:180;
@@ -98,10 +100,18 @@ hold on, plot( test, sum_normalized(test), 'r*' )
 
 % theta = 45;
 % idx = 1;
-% for i = 400:10:1200  
+% for i = 400:10:1200
 %     test_dim2(idx) = size( radon( zeros( i, i ), theta ),1 );
 %     dim_guess2(idx) = sqrt( (i)^2 + (i^2) );
 %     dim_diff2(idx) = test_dim2(idx) - dim_guess2(idx);
 %     idx = idx + 1;
 % end
 
+for j = 1:size( dic_stack, 3 )
+   figure(1), imshow( dic_stack(:,:,j) )
+   figure(2), imshow( fluor_stack(:,:,j) )
+   pause
+    
+    
+    
+end

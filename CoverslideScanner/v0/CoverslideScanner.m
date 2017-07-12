@@ -21,7 +21,16 @@ classdef CoverslideScanner < handle
             'ScanSize',10,...
             'LaserWvlnth',405) %[nm]
         
-        Analysis = struct([]);
+        Analysis = struct( ...
+            'DIC', struct('bw_img', [],...
+                          'scan_cc', [],...
+                          'img_stack', [],...
+                          'bw_stack', []),...
+                          'stack_cc', [],...
+                          'parameters', struct('entropy_window', 9),...
+            'Fluorescence', struct( 'img_stack', [],...
+                                    'bw_stack', [],...
+                                    'stats', struct([]) ) );
         
         MICMAN
     end %properties
@@ -473,7 +482,7 @@ classdef CoverslideScanner < handle
                 'xdata',[],'ydata',[],'cdata',[],...
                 'Parent',this.GUI.hAxDicBg);
             
-            colormap(this.GUI.hAxDicBg,gray(256))    
+            colormap(this.GUI.hAxDicBg,gray(256))
             
             axis(this.GUI.hAxDicBg,'xy','image','off')
             
@@ -751,28 +760,28 @@ classdef CoverslideScanner < handle
             
             if strcmp(unit,'µm')
                 pxSize = get_img_px_size(this.MICMAN);
-
+                
                 ovHeight = ovHeight*pxSize; %[µm]
                 ovWidth = ovWidth*pxSize; %[µm]
             end %if
         end %fun
         
         function dic_scan = get_dic_scan_img(this)
-           dic_scan = this.Acq.imgOV;
+            dic_scan = this.Acq.imgOV;
         end
         function get_dic_bg(this)
             set_filter_revolver_position(this.MICMAN,5)
-                    set_cleanup_filter_set(this.MICMAN.CleanupFilter,5) %remove any cleanup filter
-                    set_transmission_lamp_shutter_state(this.MICMAN,1)
-                    
-                    %%                    
-                    this.Acq.ImgDicBg = snap_img(this.MICMAN);
-                    
-                    set(this.GUI.hImgDicBg,...
-                        'cdata',this.Acq.ImgDicBg)
-                    
-                    %%
-                    set_transmission_lamp_shutter_state(this.MICMAN,0)
+            set_cleanup_filter_set(this.MICMAN.CleanupFilter,5) %remove any cleanup filter
+            set_transmission_lamp_shutter_state(this.MICMAN,1)
+            
+            %%
+            this.Acq.ImgDicBg = snap_img(this.MICMAN);
+            
+            set(this.GUI.hImgDicBg,...
+                'cdata',this.Acq.ImgDicBg)
+            
+            %%
+            set_transmission_lamp_shutter_state(this.MICMAN,0)
         end %fun
         
         %% setter
@@ -910,7 +919,7 @@ classdef CoverslideScanner < handle
             
             if x == 1 %switch ZDC auto-focus on
                 scan_and_lock_into_auto_focus(this.MICMAN)
-            
+                
                 if get_auto_focus_state(this.MICMAN)
                     set(this.GUI.hToggleActZdc,...
                         'BackgroundColor',[0.5 1 0.5])
@@ -923,7 +932,7 @@ classdef CoverslideScanner < handle
                 set_auto_focus_state(this.MICMAN,0)
                 
                 set(this.GUI.hToggleActZdc,...
-                        'BackgroundColor',[1 0.5 0.5])
+                    'BackgroundColor',[1 0.5 0.5])
             end %if
         end %fun
         
@@ -1063,14 +1072,14 @@ classdef CoverslideScanner < handle
                     'cdata',this.Acq.imgOV)
                 
                 set(this.GUI.hAxFocus,'clim',clim)
-%                 caxis(this.GUI.hAxFocus,clim)
+                %                 caxis(this.GUI.hAxFocus,clim)
                 caxis(this.GUI.NAVI.hAx,clim)
             end %for
             
             %%
             stop_live_view(this)
         end %fun
-                
+        
         function start_live_view(this)
             set([this.GUI.hDropAcqMode,...
                 this.GUI.hDropLaserWvlnth,...
@@ -1179,7 +1188,7 @@ classdef CoverslideScanner < handle
                 set([this.GUI.hEditProfile,...
                     this.GUI.hPushSwitchProfile],...
                     'Enable','off')
-                                
+                
                 set([this.GUI.hSliderImgSize,...
                     this.GUI.hEditImgSize,...
                     this.GUI.hSliderScanSize,...
@@ -1263,13 +1272,130 @@ classdef CoverslideScanner < handle
         end %fun
         
         %% analysis
-        function eval_DIC_channel( this, wind )
-            dic_scan = get_dic_scan_img(this);
-%             img_dims = get_img_size(this);
-            img_dims = [600, 600];
-%             wind = 9;
-            [bw_img, cc, stats] = ...
+        function eval_DIC_scan(this, img_dims)
+            if( ~exist( 'img_dims', 'var' ) )
+                img_dims = get_img_size(this);
+            end
+            dic_scan = get_dic_scan_img(this); 
+            %             img_dims = [600, 600];
+            if( length(img_dims) == 1 )
+                img_dims = [img_dims, img_dims];
+            end
+            %             wind = 9;
+            wind = this.Analysis.parameters.entropy_window;
+            [bw_img, cc] = ...
                 process_and_label_DIC( dic_scan, img_dims, wind );
+            for i = 1:length(cc.stats)
+                bb = cc.stats(i).BoundingBox;
+                if( bb(3) > img_dims(2) || bb(4) > img_dims(1) )
+                    cc.stats(i).keep_bool = false;
+                else
+                    cc.stats(i).keep_bool = true;
+                end
+            end
+            
+            this.Analysis.DIC.bw_img = bw_img;
+            this.Analysis.DIC.scan_cc = cc;
+        end
+        
+        function eval_selected_images(this, img_dims, scan_dims)
+            dic_stack = this.Analysis.DIC.img_stack;
+            fluor_stack = this.Analysis.Fluorescence.img_stack;
+            %             img_dims = get_img_size(this);
+            %             img_dims = [600, 600];
+            wind = 9;
+            [bw_stack, cc] = ...
+                process_and_label_DIC( dic_stack, img_dims, wind, scan_dims );
+            this.Analysis.stack_cc = cc;
+            this.Analysis.DIC.bw_stack = bw_stack;
+            eval_fluorescence_images(this, img_dims );
+            
+        end
+        
+        function eval_fluorescence_images(this, img_dims)
+            if( ~exist( 'img_dims', 'var' ) )
+                img_dims = get_img_size(this);
+            end
+            img_stack = this.Analysis.Fluorescence.img_stack;
+%             binary_vec = zeros( size( img_stack, 3 ), 1, 'logical' );
+            for i = 1:size( img_stack, 3 )
+                img = img_stack(:,:,i);
+                figure(1), subplot(1,2,1), imshow( img, [] )
+                [bw_img, img_stats] = threshold_fluor_img( img, 1000 );
+                [thetaD, pattern, x_guess, width_guess] = est_pattern_orientation( img, bw_img );
+                if( ~isempty( thetaD ) )
+                    [x, x_p, y] = find_stripe_locations( thetaD, img, pattern, img_dims );
+                    if( length(x_p) > 10 )
+                        continue
+                    end
+                    stripe_bw = ...
+                        generate_stripe_bw( round(x_p), thetaD, img_dims, round(width_guess), bw_img  );
+                    temp_img = img;
+                    temp_img( bwperim( stripe_bw ) ) = max(max(temp_img));
+                    figure(1), imshow( temp_img, [] ), title('fluorescence found' )
+                    subplot(1,2,2), imshow( bw_img, [] );
+                else
+                    figure(1), title('no fluorescence found')
+                    subplot(1,2,2), imshow( zeros( size(img) ), [] );
+                end
+%               binary_vec(i) = generate_binary_decision_dialog('fluor labeling', 'Does this image contain fluorescence?' );
+            end
+        end
+        
+        function [x_scan, y_scan] = image_center_to_scan_center( this, x_img, y_img, numX, numY )
+            
+            % need to get pxSize here
+            pxSize = 1;
+            
+            % imgWidth = this.CoreAPI.getImageWidth()*pxSize;
+            % imgHeight = this.CoreAPI.getImageHeight()*pxSize;
+            imgHeight = 1200*pxSize; imgWidth = 1200*pxSize;
+            totalWidth = numX*imgWidth;
+            totalHeight = numY*imgHeight;
+            
+            x_scan = x_img*pxSize - totalWidth/2 + this.XYStageCtr(1);
+            y_scan = y_img*pxSize - totalHeight/2 + this.XYStageCtr(2);
+            
+        end
+        
+        function test_eval(this, dic_scan, fluor_scan, old_dims)
+%             dic_scan = imread( dic_scan_path );
+%             fluor_scan = imread( fluor_scan_path );
+            dic_scan_type = class( dic_scan );
+            fluor_scan_type = class( fluor_scan );
+            img_dims = [600, 600];
+            dic_scan = resize_scan(dic_scan, old_dims, img_dims);
+            fluor_scan = resize_scan(fluor_scan, old_dims, img_dims);
+            this.Acq.imgOV = dic_scan;
+            
+            eval_DIC_scan(this, img_dims);
+            
+            cc_stats = this.Analysis.DIC.scan_cc.stats;
+            dic_stack = zeros( img_dims(1), img_dims(2), length(cc_stats), dic_scan_type );
+            fluor_stack = zeros( img_dims(1), img_dims(2), length(cc_stats), fluor_scan_type );
+            
+            for i = 1:size(cc_stats)
+                center_pt = round(cc_stats(i).BB_center);
+                rows = [ center_pt(2)-img_dims(1)/2+1, center_pt(2)+img_dims(1)/2 ];
+                cols = [ center_pt(1)-img_dims(2)/2+1, center_pt(1)+img_dims(2)/2 ];
+                if( min( rows ) < 1 )
+                    rows = rows - min(rows) + 1;
+                elseif( max( rows ) > size( dic_scan, 1) )
+                    rows = rows - (max(rows) - size(dic_scan, 1)); 
+                end
+                if( min( cols ) < 1 )
+                    cols = cols - min(cols) + 1;
+                elseif( max( cols ) > size( dic_scan, 2) )
+                    cols = cols - (max(cols) - size(dic_scan, 2)); 
+                end
+                dic_stack(:,:,i) = extract_subimage( dic_scan, rows, cols );
+                fluor_stack(:,:,i) = extract_subimage( fluor_scan, rows, cols );
+                
+            end
+            this.Analysis.DIC.img_stack = dic_stack;
+            this.Analysis.Fluorescence.img_stack = fluor_stack;
+            scan_dims = size( dic_scan );
+            eval_selected_images(this, img_dims, scan_dims);
             
             
             
