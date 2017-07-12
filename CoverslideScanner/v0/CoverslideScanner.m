@@ -78,7 +78,13 @@ classdef CoverslideScanner < handle
                 'OuterPosition', [0 0.2 1 0.8],...
                 'Box','on');
             
-            img = imread('\\wsvbp\bp-matlab-tools$\CoverslideScanner\Setup.png');
+            [~,temp] = dos('getmac');
+            
+            if( strcmp( temp(239:255), '08-62-66-B8-34-DD' ) )
+                img = zeros( 600,600 );
+            else
+                img = imread('\\wsvbp\bp-matlab-tools$\CoverslideScanner\Setup.png');
+            end
             imagesc(img,...
                 'Parent',this.GUI.hAxProfile)
             
@@ -1259,10 +1265,15 @@ classdef CoverslideScanner < handle
         %% analysis
         function eval_DIC_channel( this, wind )
             dic_scan = get_dic_scan_img(this);
-            img_dims = get_image_size(this);
-            wind = 9;
+%             img_dims = get_img_size(this);
+            img_dims = [600, 600];
+%             wind = 9;
             [bw_img, cc, stats] = ...
                 process_and_label_DIC( dic_scan, img_dims, wind );
+            
+            
+            
+            
         end
         
         

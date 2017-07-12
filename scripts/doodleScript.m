@@ -1,4 +1,30 @@
+%%
 
+if( ~exist( 'this', 'var' ) )
+    this = CoverslideScanner;
+end
+temp_img = imread('D:\OS_Biophysik\Microscopy\170706\DIC_170706_1455.tif' );
+temp_img_stack = img_2D_to_img_stack( temp_img, [1200 1200] );
+img_resize = zeros( 600, 600, 225 );
+
+for i = 1:size( temp_img_stack, 3 )
+    
+   figure(1), imshow( temp_img_stack(:,:,i), [] ) 
+    
+   img_resize(:,:,i) = imresize( temp_img_stack(:,:,i), 1/2 );
+   
+    figure(2), imshow( img_resize(:,:,i), [] );
+    
+end
+
+img_resize = img_stack_to_img_2D( img_resize, [15 15] );
+this.Acq.imgOV = img_resize;
+this.eval_DIC_channel( 9 );
+
+figure(1), subplot(1,2,1), imshow( im, [] );
+subplot(1,2,2), imshow( img_ent(:,:,i), [] )
+
+%%
 if( ~exist( 'img', 'var' ) )
     img = imread('T:\Marino\Microscopy\Raw Images for Michael\higher signal to noise\sample 1\cell 3 after 488 20% LP.tif');
 end
