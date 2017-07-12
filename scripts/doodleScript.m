@@ -3,9 +3,11 @@
 if( ~exist( 'this', 'var' ) )
     this = CoverslideScanner;
 end
-temp_img = imread('D:\OS_Biophysik\Microscopy\170706\DIC_170706_1455.tif' );
+% temp_img = imread('D:\OS_Biophysik\Microscopy\170706\DIC_170706_1455.tif' );
+temp_img = imread('T:\Marino\Microscopy\170706\DIC_170706_1455.tif' );
 temp_img_stack = img_2D_to_img_stack( temp_img, [1200 1200] );
-img_resize = zeros( 600, 600, 225 );
+data_type = class( temp_img );
+img_resize = zeros( 600, 600, 225, data_type );
 
 for i = 1:size( temp_img_stack, 3 )
     
@@ -21,8 +23,27 @@ img_resize = img_stack_to_img_2D( img_resize, [15 15] );
 this.Acq.imgOV = img_resize;
 this.eval_DIC_channel( 9 );
 
-figure(1), subplot(1,2,1), imshow( im, [] );
-subplot(1,2,2), imshow( img_ent(:,:,i), [] )
+% figure(1), subplot(1,2,1), imshow( im, [] );
+% subplot(1,2,2), imshow( img_ent(:,:,i), [] )
+
+test1 = img_2D_to_img_stack( dic_scan, [600 600] );
+test2 = img_2D_to_img_stack( bw_img, [600 600] );
+test3 = img_2D_to_img_stack( img_ent, [600 600] );
+test4 = img_2D_to_img_stack( ent_smooth, [600 600] );
+test5 = img_2D_to_img_stack( bw_img2, [600 600] );
+
+figure(2)
+for i = 1:size( test1, 3 )
+   perim1 = bwperim( test2(:,:,i) );
+   perim2 = bwperim( test5(:,:,i) );
+   temp1 = test1(:,:,i); temp1( perim1 ) = max(max(temp1));
+   temp2 = test1(:,:,i); temp2( perim2 ) = max(max(temp2));
+   figure(2), subplot( 1,2,1 ), imshow( temp1, [] )
+   subplot( 1,2,2 ), imshow( test4(:,:,i), [] )
+      figure(3), subplot( 1,2,1 ), imshow( temp2, [] )
+   subplot( 1,2,2 ), imshow( test3(:,:,i), [] )
+ pause
+end
 
 %%
 if( ~exist( 'img', 'var' ) )

@@ -7,5 +7,12 @@ function props_struct = get_cc_regionprops( cc )
     props_struct = regionprops( cc, 'Area', 'BoundingBox', 'Centroid',...
         'ConvexArea', 'Eccentricity', 'EquivDiameter', 'MajorAxisLength',...
         'MinorAxisLength', 'Perimeter', 'Solidity' );
+    
+    
+    for i = 1:length( props_struct )
+        bb = [props_struct(i).BoundingBox];
+        props_struct(i).BB_center = [ bb(1) + bb(3)/2, bb(2) + bb(4)/2 ];
+    end
+    
 end
 

@@ -35,6 +35,7 @@ end
 % labeled_img = new_idx;
 % bw_img = (labeled_img > 2);
 bw_img = imbinarize(img, int_thresh);
+bw_img = imopen( bw_img, strel( 'disk', 4 ) );
 % bw_img = imfill( bw_img, 'holes' );
 cc = bwconncomp(bw_img);
 

@@ -80,7 +80,7 @@ classdef CoverslideScanner < handle
             
             [~,temp] = dos('getmac');
             
-            if( strcmp( temp(239:255), '08-62-66-B8-34-DD' ) )
+            if( length(temp) > 240 && strcmp( temp(239:255), '08-62-66-B8-34-DD' ) )
                 img = zeros( 600,600 );
             else
                 img = imread('\\wsvbp\bp-matlab-tools$\CoverslideScanner\Setup.png');
