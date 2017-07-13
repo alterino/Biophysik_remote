@@ -84,6 +84,7 @@ elseif( thetaD > 90 ), thetaD = thetaD-180; end
 if( thetaD < 0 ), rot_ang = thetaD + 90;
 else, rot_ang = thetaD - 90; end
 
+pattern = floures_pattern_gen( ceil(width_guess), 0, size(img_crop), 1);
 pattern = imrotate(pattern, rot_ang);
 
 
