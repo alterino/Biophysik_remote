@@ -3,27 +3,29 @@
 if( ~exist( 'this', 'var' ) )
     this = CoverslideScanner;
 end
-if( ~exist( 'temp_img', 'var' ) )
-    temp_img = imread('D:\OS_Biophysik\Microscopy\170706\DIC_170706_1455.tif' );
-    % temp_img = imread('T:\Marino\Microscopy\170706\DIC_170706_1455.tif' );
+if( ~exist( 'dic_scan', 'var' ) )
+    %     temp_img = imread('D:\OS_Biophysik\Microscopy\170706\DIC_170706_1455.tif' );
+    dic_scan = imread('T:\Marino\Microscopy\170706\DIC_170706_1455.tif' );
 end
-temp_img_stack = img_2D_to_img_stack( temp_img, [1200 1200] );
-data_type = class( temp_img );
-img_resize = zeros( 600, 600, 225, data_type );
+if( ~exist( 'fluor_scan', 'var' ) )
+    fluor_scan = imread('T:\Marino\Microscopy\170706\Fluor_405_170706_1510.tif' );
+end
+temp_dic_stack = img_2D_to_img_stack( temp_dic, [1200 1200] );
+temp_fluor_stack = img_2D_to_img_stack( temp_fluor, [1200 1200] );
+data_type = class( temp_dic );
+dic_resize = zeros( 600, 600, 225, data_type );
+fluor_resize = zeros( 600, 600, 225, data_type );
 
-for i = 1:size( temp_img_stack, 3 )
-    
-    %    figure(1), imshow( temp_img_stack(:,:,i), [] )
-    
-    img_resize(:,:,i) = imresize( temp_img_stack(:,:,i), 1/2 );
-    
-    %     figure(2), imshow( img_resize(:,:,i), [] );
-    
+for i = 1:size( temp_dic_stack, 3 )
+    dic_resize(:,:,i) = imresize( temp_dic_stack(:,:,i), 1/2 );
+    fluor_resize(:,:,i) = imresize( temp_fluor_stack(:,:,i), 1/2 );
 end
 
-img_resize = img_stack_to_img_2D( img_resize, [15 15] );
-this.Acq.imgOV = img_resize;
-this.eval_DIC_channel( 9 );
+dic_resize = img_stack_to_img_2D( dic_resize, [15 15] );
+fluor_resize = img_stack_to_img_2D( fluor_resize, [15 15] );
+
+this.Acq.imgOV = dic_resize;
+this.eval_DIC_scan( 9 );
 
 % figure(1), subplot(1,2,1), imshow( im, [] );
 % subplot(1,2,2), imshow( img_ent(:,:,i), [] )
@@ -108,9 +110,9 @@ hold on, plot( test, sum_normalized(test), 'r*' )
 % end
 
 for j = 1:size( dic_stack, 3 )
-   figure(1), imshow( dic_stack(:,:,j) )
-   figure(2), imshow( fluor_stack(:,:,j) )
-   pause
+    figure(1), imshow( dic_stack(:,:,j) )
+    figure(2), imshow( fluor_stack(:,:,j) )
+    pause
     
     
     
