@@ -1285,7 +1285,6 @@ classdef CoverslideScanner < handle
         %% analysis
         function run_eval(this)
             new_dims = this.Analysis.DIC.parameters.eval_img_dims;
-            
             dic_scan = get_dic_scan_img(this);
             old_dims = get_img_size(this);
             if( length(old_dims) == 1)
@@ -1294,7 +1293,6 @@ classdef CoverslideScanner < handle
             numX = size( dic_scan, 2)/old_dims(2);
             numY = size( dic_scan, 1)/old_dims(1);
             dic_scan = resize_scan(dic_scan, old_dims, new_dims);
-%             this.Analysis.DIC.parameters.eval_scan_dims = size( dic_scan );
             eval_DIC_scan(this, img_dims);
             
             cc_stats = this.Analysis.DIC.scan_cc.stats;
@@ -1311,7 +1309,6 @@ classdef CoverslideScanner < handle
             [x,y] = image_center_to_scan_center( this, img_centers_x, img_centers_y,...
                 numX, numY );
             get_ROI_images(this, x, y);
-%             scan_dims = this.Analysis.DIC.parameters.eval_scan_dims;
             
             this.Analysis.DIC.img_stack = dic_stack;
             this.Analysis.Fluorescence.img_stack = fluor_stack;
@@ -1382,7 +1379,6 @@ classdef CoverslideScanner < handle
                     figure(1), title('no fluorescence found')
                     subplot(1,2,2), imshow( zeros( size(img) ), [] );
                 end
-%               binary_vec(i) = generate_binary_decision_dialog('fluor labeling', 'Does this image contain fluorescence?' );
             end
         end
         
@@ -1393,9 +1389,6 @@ classdef CoverslideScanner < handle
             
 %             figure
             for i = 1:size( fluor_stack, 3 )
-%                 pix_idx_list = this.Analysis.DIC.stack_cc.PixelIdxList
-%                 pix_idx_list = this.Analysis.DIC.stack_cc.PixelIdxList;
-%                 pix_idx_list = pix_idx_list([this.Analysis.DIC.scan_cc.stats.keep_bool]);
                 
                 img = fluor_stack(:,:,i);
                 [bw_img, img_stats] = threshold_fluor_img( img, 1000 );
@@ -1406,14 +1399,11 @@ classdef CoverslideScanner < handle
                 fluor_var = var( img( bw_cell_fluor ) );
                 bg_mean = mean( img( bw_cell_bg ) );
                 bg_var = var( img( bw_cell_bg ) );
-%                 subplot(2,2,1), imshow( img, [] )
-%                 subplot(2,2,2), imshow( bw_cell_fluor, [] )
-%                 subplot(2,2,4), imshow( bw_img, [] )
-%                 subplot(2,2,3), imshow( dic_bw_stack(:,:,i), [] )
+
                 if( isnan( fluor_mean ) || isnan( fluor_var ) )
                     score = 0;
                 else
-                    score = (fluor_mean - bg_mean); %+ 1/fluor_var + 1/bg_var;
+                    score = (fluor_mean - bg_mean);
                 end
                 this.Analysis.Fluorescence.stats(i).fluor_mean = fluor_mean;
                 this.Analysis.Fluorescence.stats(i).fluor_var = fluor_var;
@@ -1447,17 +1437,10 @@ classdef CoverslideScanner < handle
             for i = 1:length(idx)
                temp_fluor = fluor_stack(:,:,idx(i));
                temp_dic = dic_stack(:,:,idx(i));
-%                temp_fluor( bwperim(fluor_bw_stack(:,:,idx(i))) ) = max(max(temp_fluor));
-%                temp_fluor( bwperim(dic_bw_stack(:,:,i)) ) = max(max(temp_fluor));
-%                temp_dic( bwperim(dic_bw_stack(:,:,idx(i))) ) = max(max(temp_dic));
                subplot(1,2,1),  imshow( temp_dic, [] )
                subplot(1,2,2), imshow( temp_fluor, [] )
                title(sprintf('ranking = %i', i));
-%                title('rank = %i', 
-%                pause(
             end
-            
-            
         end
         
         function [x_scan, y_scan] = image_center_to_scan_center( this, x_img, y_img, numX, numY )
@@ -1465,8 +1448,6 @@ classdef CoverslideScanner < handle
             % need to get pxSize here
             pxSize = 1;
             
-            % imgWidth = this.CoreAPI.getImageWidth()*pxSize;
-            % imgHeight = this.CoreAPI.getImageHeight()*pxSize;
             imgHeight = 1200*pxSize; imgWidth = 1200*pxSize;
             totalWidth = numX*imgWidth;
             totalHeight = numY*imgHeight;

@@ -1,24 +1,24 @@
-pxSize = .108;
-numX = 10;
-numY = 10;
-stage_center = [1e4, 1e4];
-img_dims = [1200 1200];
-[x,y,bad] = test_set_path(pxSize,numX,numY,stage_center, img_dims);
-% MICMAN = classMicroManagerWrapper;
-% SCANNER = CoverslideScanner;
-
-for i = 1:length(x)
-    
-    [imgPtsX, imgPtsY] = scan_center_to_img_idx( x(i), y(i), numX, numY, pxSize, img_dims, stage_center );
-    x_img = (max(max(double(imgPtsX)))) - img_dims(2)/2;
-    y_img = (max(max(double(imgPtsY)))) - img_dims(1)/2;
-    
-    
-    [x_scan, y_scan] = image_center_to_scan_center( x_img, y_img, numX, numY, pxSize, img_dims, stage_center );
-    
-    
-    
-end
+% pxSize = .108;
+% numX = 10;
+% numY = 10;
+% stage_center = [1e4, 1e4];
+% img_dims = [1200 1200];
+% [x,y,bad] = test_set_path(pxSize,numX,numY,stage_center, img_dims);
+% % MICMAN = classMicroManagerWrapper;
+% % SCANNER = CoverslideScanner;
+% 
+% for i = 1:length(x)
+%     
+%     [imgPtsX, imgPtsY] = scan_center_to_img_idx( x(i), y(i), numX, numY, pxSize, img_dims, stage_center );
+%     x_img = (max(max(double(imgPtsX)))) - img_dims(2)/2;
+%     y_img = (max(max(double(imgPtsY)))) - img_dims(1)/2;
+%     
+%     
+%     [x_scan, y_scan] = image_center_to_scan_center( x_img, y_img, numX, numY, pxSize, img_dims, stage_center );
+%     
+%     
+%     
+% end
 
 
 % %%
@@ -143,4 +143,28 @@ end
 % 
 % 
 % 
-% 
+
+file_dir = dir( 'T:\Marino\data\*.tiff' );
+fluor_files = cell( length(file_dir)/2, 1 );
+dic_files = cell( length(file_dir)/2, 1 );
+
+for i = 1:length( file_dir )
+    temp_name = file_dir(i).name;
+    if( strcmp( temp_name(1:3), 'dic' ) )
+       next_idx = find(cellfun( @isempty, dic_files )==1, 1 );
+       dic_files{next_idx} = strcat( file_dir(i).folder, '\', file_dir(i).name );
+    else
+        next_idx = find( cellfun(@isempty, fluor_files)==1, 1 );
+        fluor_files{next_idx} = strcat( file_dir(i).folder, '\', file_dir(i).name );
+    end
+end
+
+for i = 1:length( fluor_files )
+   temp_dic = imread( dic_files{i} );
+   temp_fluor = imread( fluor_files{i} );
+   
+   figure(1), subplot(1,2,1), imshow( temp_dic, [] );
+   subplot(1,2,2), imshow( temp_fluor, [] );
+ end
+
+
