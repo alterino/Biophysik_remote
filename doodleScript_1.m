@@ -29,17 +29,38 @@
 % end
 % 
 % 
-figure(1)
-for i = 1:length( stats )
-   bb_center = [stats(i).BoundingBox(1) + stats(i).BoundingBox(3)/2,...
-                stats(i).BoundingBox(2) + stats(i).BoundingBox(4)/2];
-            
-   subimg_topleft = [ min( [ max( [bb_center(1)-300, 1] ), size(dic_scan, 2 )-599 ] ) ,...
-                        min( [ max( [bb_center(2)-299, 1] ), size(dic_scan, 1)-599 ] ) ];
-   subimg = dic_scan( subimg_topleft(2):subimg_topleft(2)+599,...
-                        subimg_topleft(1):subimg_topleft(1)+599 );
-   imshow( subimg, [] ), title( sprintf('i = %i', i ) );
-   pause
+% figure(1)
+% for i = 1:length( stats )
+%    bb_center = [stats(i).BoundingBox(1) + stats(i).BoundingBox(3)/2,...
+%                 stats(i).BoundingBox(2) + stats(i).BoundingBox(4)/2];
+%             
+%    subimg_topleft = [ min( [ max( [bb_center(1)-300, 1] ), size(dic_scan, 2 )-599 ] ) ,...
+%                         min( [ max( [bb_center(2)-299, 1] ), size(dic_scan, 1)-599 ] ) ];
+%    subimg = dic_scan( subimg_topleft(2):subimg_topleft(2)+599,...
+%                         subimg_topleft(1):subimg_topleft(1)+599 );
+%    imshow( subimg, [] ), title( sprintf('i = %i', i ) );
+%    pause
+% end
+test_img = imread( 'T:\Marino\Microscopy\Raw Images for Michael\higher signal to noise\sample 3\Cell1 BFP 10%.tif');
+
+filter_sizes = 0:1:100;
+smoother_imgs = cell( length(filter_sizes), 1 );
+img_var = zeros( length(filter_sizes), 1);
+img_grad_mean = zeros( length(filter_sizes), 1);
+img_ent = zeros( length(filter_sizes), 1);
+
+for i = 1:length(filter_sizes)
+    smoother_imgs{i} = imgaussfilt(test_img, i);
+    img_var(i) = var( var( double(smoother_imgs{i} ) ) );
+    [Gmag,Gdir] = imgradient( double(smoother_imgs{i} ));
+    img_grad_mean(i) = mean( mean( Gmag ) );
+    temp = double(smoother_imgs{i});
+    temp = ( temp - min(min(temp)))/(max(max(temp)) - min(min(temp)));
+    img_ent(i) = entropy( temp );
 end
 
+
+figure(1), plot( filter_sizes, img_var, 'b-' ), title('variance'), grid on
+figure(2), plot( filter_sizes, img_grad_mean, 'b-' ), title('gradient'), grid on
+figure(3), plot( filter_sizes, img_ent, 'b-' ), title('entropy'), grid on
 

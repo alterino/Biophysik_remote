@@ -30,14 +30,17 @@ classdef CoverslideScanner < handle
             'Fluorescence', struct( 'img_stack', [],...
                                     'bw_stack', [],...
                                     'stats', struct('img_stats',[],...
-                                                    'fluor_mean', [],...
-                                                    'fluor_var', [],...
-                                                    'bg_mean', [],...
-                                                    'bg_var', [],...
-                                                    'score', []) ),...
+                                    'fluor_mean', [],...
+                                    'fluor_var', [],...
+                                    'bg_mean', [],...
+                                    'bg_var', [],...
+                                    'score', []) ),...
             'parameters', struct('entropy_window', 9,...
-                                 'eval_img_dims', [600 600],...
-                                 'eval_scan_dims', [] ) );
+            'eval_img_dims', [600 600],...
+            'eval_scan_dims', [],...
+            'resize_ratio', [],...
+            'output_dir', pwd,...
+            'filepaths', []) );
         
         MICMAN
     end %properties
@@ -792,7 +795,7 @@ classdef CoverslideScanner < handle
         end %fun
         
         function laser = get_laser(this)
-           laser = this.Acq.LaserWvlnth;
+            laser = this.Acq.LaserWvlnth;
         end
         
         %% setter
@@ -1284,11 +1287,12 @@ classdef CoverslideScanner < handle
         
         %% analysis
         function run_eval(this)
+            init_eval(this);
             new_dims = this.Analysis.DIC.parameters.eval_img_dims;
             dic_scan = get_dic_scan_img(this);
             old_dims = get_img_size(this);
             if( length(old_dims) == 1)
-               old_dims = [old_dims, old_dims]; 
+                old_dims = [old_dims, old_dims];
             end
             numX = size( dic_scan, 2)/old_dims(2);
             numY = size( dic_scan, 1)/old_dims(1);
@@ -1303,8 +1307,8 @@ classdef CoverslideScanner < handle
             img_centers_x = zeros( length( cc_stats ), 1 );
             img_centers_y = zeros( length( cc_stats ), 1 );
             for i = 1:length( cc_stats )
-               img_centers_x(i) = cc_stats(i).BB_center(1); 
-               img_centers_y(i) = cc_stats(i).BB_center(2);
+                img_centers_x(i) = cc_stats(i).BB_center(1);
+                img_centers_y(i) = cc_stats(i).BB_center(2);
             end
             [x,y] = image_center_to_scan_center( this, img_centers_x, img_centers_y,...
                 numX, numY );
@@ -1314,13 +1318,14 @@ classdef CoverslideScanner < handle
             this.Analysis.Fluorescence.img_stack = fluor_stack;
             scan_dims = size( dic_scan );
             eval_selected_images(this, new_dims, scan_dims );
+            export_output(this);
             view_results(this);
         end
         function eval_DIC_scan(this, img_dims)
             if( ~exist( 'img_dims', 'var' ) )
                 img_dims = get_img_size(this);
             end
-            dic_scan = get_dic_scan_img(this); 
+            dic_scan = get_dic_scan_img(this);
             %             img_dims = [600, 600];
             if( length(img_dims) == 1 )
                 img_dims = [img_dims, img_dims];
@@ -1350,7 +1355,8 @@ classdef CoverslideScanner < handle
                 process_and_label_DIC( dic_stack, img_dims, wind, scan_dims );
             this.Analysis.DIC.stack_cc = cc;
             this.Analysis.DIC.bw_stack = bw_stack;
-            simplified_fluorescence_eval(this);
+            %             simplified_fluorescence_eval(this);
+            eval_fluorescence_images(this, img_dims)
         end
         
         function eval_fluorescence_images(this, img_dims)
@@ -1358,28 +1364,59 @@ classdef CoverslideScanner < handle
                 img_dims = get_img_size(this);
             end
             img_stack = this.Analysis.Fluorescence.img_stack;
-%             binary_vec = zeros( size( img_stack, 3 ), 1, 'logical' );
+            bw_dic_stack = this.Analysis.DIC.bw_stack;
+            %             binary_vec = zeros( size( img_stack, 3 ), 1, 'logical' );
             for i = 1:size( img_stack, 3 )
                 img = img_stack(:,:,i);
+                bw_dic = bw_dic_stack(:,:,i);
+                bw_dic = imfill( bw_dic, 'holes' );
                 figure(1), subplot(1,2,1), imshow( img, [] )
-                [bw_img, img_stats] = threshold_fluor_img( img, 1000 );
-                [thetaD, pattern, x_guess, width_guess] = est_pattern_orientation( img, bw_img );
+                [bw_fluor, img_stats] = threshold_fluor_img( img, 1000 );
+                [thetaD, pattern, x_guess, width_guess] = est_pattern_orientation( img, bw_fluor );
                 if( ~isempty( thetaD ) )
-                    [x, x_p, y] = find_stripe_locations( thetaD, img, pattern, img_dims );
+                    [x, x_p, y] = find_stripe_locations( thetaD, img, pattern, img_dims, bw_dic );
                     if( length(x_p) > 10 )
                         continue
                     end
                     stripe_bw = ...
-                        generate_stripe_bw( round(x_p), thetaD, img_dims, round(width_guess), bw_img  );
+                        generate_stripe_bw( round(x_p), thetaD, img_dims, round(width_guess), bw_fluor  );
                     temp_img = img;
+                    stripe_bw = and( stripe_bw, bw_dic );
                     temp_img( bwperim( stripe_bw ) ) = max(max(temp_img));
                     figure(1), imshow( temp_img, [] ), title('fluorescence found' )
-                    subplot(1,2,2), imshow( bw_img, [] );
+                    subplot(1,2,2), imshow( bw_fluor, [] );
+                    
+                    fluor_pix = img( stripe_bw );
+                    nonfluor_pix = img( and( bw_dic, ~stripe_bw ) );
+                    
+                    fluor_mean = mean( double(fluor_pix) ); fluor_var = var( double(fluor_pix) );
+                    bg_mean = mean( double(nonfluor_pix) ); bg_var = var( double(nonfluor_pix) );
+                    
+                    if( isnan( fluor_mean ) || isnan( fluor_var ) )
+                        score = 0;
+                    else
+                        score = (fluor_mean - bg_mean);
+                    end
+                    this.Analysis.Fluorescence.stats(i).fluor_mean = fluor_mean;
+                    this.Analysis.Fluorescence.stats(i).fluor_var = fluor_var;
+                    this.Analysis.Fluorescence.stats(i).bg_mean = bg_mean;
+                    this.Analysis.Fluorescence.stats(i).bg_var = bg_var;
+                    this.Analysis.Fluorescence.stats(i).score = score;
+                    this.Analysis.Fluorescence.img_stats(i) = img_stats;
                 else
                     figure(1), title('no fluorescence found')
                     subplot(1,2,2), imshow( zeros( size(img) ), [] );
+                    this.Analysis.Fluorescence.stats(i).score = 0;
                 end
             end
+            [~, sorted_idx] = sort( [this.Analysis.Fluorescence.stats.score], 'descend' );
+            
+            for i = 1:length( sorted_idx )
+                this.Analysis.Fluorescence.stats(i).rank = sorted_idx(i);
+                this.Analysis.DIC.stack_cc.stats(i).rank = sorted_idx(i);
+            end
+            
+            
         end
         
         function simplified_fluorescence_eval(this)
@@ -1387,7 +1424,7 @@ classdef CoverslideScanner < handle
             fluor_bw_stack = zeros( size( fluor_stack ), 'logical' );
             dic_bw_stack = this.Analysis.DIC.bw_stack;
             
-%             figure
+            %             figure
             for i = 1:size( fluor_stack, 3 )
                 
                 img = fluor_stack(:,:,i);
@@ -1399,7 +1436,7 @@ classdef CoverslideScanner < handle
                 fluor_var = var( img( bw_cell_fluor ) );
                 bg_mean = mean( img( bw_cell_bg ) );
                 bg_var = var( img( bw_cell_bg ) );
-
+                
                 if( isnan( fluor_mean ) || isnan( fluor_var ) )
                     score = 0;
                 else
@@ -1418,33 +1455,33 @@ classdef CoverslideScanner < handle
             [~, sorted_idx] = sort( [this.Analysis.Fluorescence.stats.score], 'descend' );
             
             for i = 1:length( sorted_idx )
-               this.Analysis.Fluorescence.stats(i).rank = sorted_idx(i); 
-               this.Analysis.DIC.stack_cc.stats(i).rank = sorted_idx(i); 
+                this.Analysis.Fluorescence.stats(i).rank = sorted_idx(i);
+                this.Analysis.DIC.stack_cc.stats(i).rank = sorted_idx(i);
             end
         end
         
         function view_results(this)
-           fluor_stack = this.Analysis.Fluorescence.img_stack;
-           fluor_bw_stack = this.Analysis.Fluorescence.bw_stack;
-           dic_stack = this.Analysis.DIC.img_stack;
-           dic_bw_stack = this.Analysis.DIC.bw_stack;
-           
-           rank_vec = [this.Analysis.Fluorescence.stats.rank];
-           
-           [~,idx] = sort( rank_vec );
-           
+            fluor_stack = this.Analysis.Fluorescence.img_stack;
+            fluor_bw_stack = this.Analysis.Fluorescence.bw_stack;
+            dic_stack = this.Analysis.DIC.img_stack;
+            dic_bw_stack = this.Analysis.DIC.bw_stack;
+            
+            rank_vec = [this.Analysis.Fluorescence.stats.rank];
+            
+            [~,idx] = sort( rank_vec );
+            
             figure
             for i = 1:length(idx)
-               temp_fluor = fluor_stack(:,:,idx(i));
-               temp_dic = dic_stack(:,:,idx(i));
-               subplot(1,2,1),  imshow( temp_dic, [] )
-               subplot(1,2,2), imshow( temp_fluor, [] )
-               title(sprintf('ranking = %i', i));
+                temp_fluor = fluor_stack(:,:,idx(i));
+                temp_dic = dic_stack(:,:,idx(i));
+                temp_dic( bwperim( dic_bw_stack(:,:,idx(i)) ) ) = max( temp_dic(:) );
+                subplot(1,2,1),  imshow( temp_dic, [] )
+                subplot(1,2,2), imshow( temp_fluor, [] )
+                title(sprintf('ranking = %i', i));
             end
         end
         
         function [x_scan, y_scan] = image_center_to_scan_center( this, x_img, y_img, numX, numY )
-            
             % need to get pxSize here
             pxSize = 1;
             
@@ -1458,6 +1495,7 @@ classdef CoverslideScanner < handle
         end
         
         function test_eval(this, dic_scan, fluor_scan, old_dims)
+            init_eval(this);
             dic_scan_type = class( dic_scan );
             fluor_scan_type = class( fluor_scan );
             img_dims = [600, 600];
@@ -1479,12 +1517,12 @@ classdef CoverslideScanner < handle
                 if( min( rows ) < 1 )
                     rows = rows - min(rows) + 1;
                 elseif( max( rows ) > size( dic_scan, 1) )
-                    rows = rows - (max(rows) - size(dic_scan, 1)); 
+                    rows = rows - (max(rows) - size(dic_scan, 1));
                 end
                 if( min( cols ) < 1 )
                     cols = cols - min(cols) + 1;
                 elseif( max( cols ) > size( dic_scan, 2) )
-                    cols = cols - (max(cols) - size(dic_scan, 2)); 
+                    cols = cols - (max(cols) - size(dic_scan, 2));
                 end
                 dic_stack(:,:,i) = extract_subimage( dic_scan, rows, cols );
                 fluor_stack(:,:,i) = extract_subimage( fluor_scan, rows, cols );
@@ -1494,6 +1532,7 @@ classdef CoverslideScanner < handle
             this.Analysis.Fluorescence.img_stack = fluor_stack;
             scan_dims = size( dic_scan );
             eval_selected_images(this, img_dims, scan_dims);
+            export_output(this);
             view_results(this);
         end
         
@@ -1518,13 +1557,51 @@ classdef CoverslideScanner < handle
                     dic_img = dic_img - this.Acq.ImgDicBg;
                 end %if
                 
-%                 idx = sub2ind([totalHeight,totalWidth],i(:),j(:));
+                %                 idx = sub2ind([totalHeight,totalWidth],i(:),j(:));
                 dic_stack(:,:,i) = dic_img;
                 fluor_stack(:,:,i) = fluor_img;
                 
             end %for
             this.Analysis.DIC.img_stack = dic_stack;
             this.Analsysis.Fluorescence.img_stack = fluor_stack;
+        end
+        
+        function init_eval(this)
+           parent_dir = uigetdir( pwd ); 
+           date_str = datestr(now, 'yyyymmdd');
+           output_dir = strcat( parent_dir, '\', date_str );
+           if( ~exist( output_dir, 'dir' ) )
+               mkdir( output_dir  );
+           end
+           
+           this.Analysis.output_dir = strcat( output_dir, '\' );
+        end
+        
+        function export_output(this)
+            fluor_stack = this.Analysis.Fluorescence.img_stack;
+            fluor_bw_stack = this.Analysis.Fluorescence.bw_stack;
+            dic_stack = this.Analysis.DIC.img_stack;
+            dic_bw_stack = this.Analysis.DIC.bw_stack;
+            filepaths = cell( size( fluor_stack, 3 ), 2 );
+            dic_scan = this.Acq.imgOV;
+            
+            rank_vec = [this.Analysis.Fluorescence.stats.rank];
+            
+            [~,idx] = sort( rank_vec );
+            
+            fluor_filestr = strcat( this.Analysis.output_dir, 'fluor_img_' );
+            dic_filestr = strcat( this.Analysis.output_dir, 'dic_img_' );
+            figure
+            for i = 1:length(idx)
+                temp_fluor = uint16(fluor_stack(:,:,idx(i)));
+                temp_dic = uint16(dic_stack(:,:,idx(i)));
+                filepaths{i,1} = strcat( fluor_filestr, sprintf('%04i', i), '.tiff' );
+                filepaths{i,2} = strcat( dic_filestr, sprintf('%04i', i), '.tiff' );
+                imwrite( temp_fluor, filepaths{i,1} );
+                imwrite( temp_dic, filepaths{i,2} );
+            end
+            this.Analysis.filepaths = filepaths;
+            imwrite( dic_scan, strcat( this.Analysis.output_dir, 'overview_scan.tiff' ) );
         end
         
     end %methods

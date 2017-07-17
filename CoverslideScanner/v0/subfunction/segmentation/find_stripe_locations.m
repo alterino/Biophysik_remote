@@ -1,6 +1,10 @@
-function [x, x_p, y] = find_stripe_locations( thetaD, img, pattern, img_dims )
+function [x, x_p, y] = find_stripe_locations( thetaD, img, pattern, img_dims, bw_dic )
 %UNTITLED Summary of this function goes here
 %   img_dims should be in [row col] format
+
+if( exist('bw_dic', 'var') )
+   img(bw_dic==0) = 0; 
+end
 
 img_corr = conv2( double(img), double(pattern), 'same');
 
@@ -55,8 +59,8 @@ x_test = img_center(2) + relative_minima*cosd(phiD);
 y_test = img_center(1) - relative_minima*sind(phiD);
 
 
-figure, imagesc( corr_radon );
-figure, plot( xp, sum_normalized, 'g-');
+% figure, imagesc( corr_radon );
+% figure, plot( xp, sum_normalized, 'g-');
 
 % if(abs(thetaD)>45)
 %     y_center = ceil(size(img_corr,1)/2);
