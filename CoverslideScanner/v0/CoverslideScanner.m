@@ -29,12 +29,13 @@ classdef CoverslideScanner < handle
                           'stack_cc', [] ),...
             'Fluorescence', struct( 'img_stack', [],...
                                     'bw_stack', [],...
+                                    'dims_dict', [ {[10, 5]}, {[5, 2]}, {[15, 10]}, {[40, 3]}, {[60 10]} ], ... %[um]
                                     'stats', struct('img_stats',[],...
                                     'fluor_mean', [],...
                                     'fluor_var', [],...
                                     'bg_mean', [],...
                                     'bg_var', [],...
-                                    'score', []) ),...
+                                    'score', [] ) ),...
             'parameters', struct('entropy_window', 9,...
             'eval_img_dims', [600 600],...
             'eval_scan_dims', [],...
@@ -1366,24 +1367,26 @@ classdef CoverslideScanner < handle
             img_stack = this.Analysis.Fluorescence.img_stack;
             bw_dic_stack = this.Analysis.DIC.bw_stack;
             %             binary_vec = zeros( size( img_stack, 3 ), 1, 'logical' );
-            for i = 1:size( img_stack, 3 )
+            for i = 75:size( img_stack, 3 )
                 img = img_stack(:,:,i);
                 bw_dic = bw_dic_stack(:,:,i);
                 bw_dic = imfill( bw_dic, 'holes' );
-                figure(1), subplot(1,2,1), imshow( img, [] )
+                figure(5), subplot(1,2,1), imshow( img, [] )
                 [bw_fluor, img_stats] = threshold_fluor_img( img, 1000 );
                 [thetaD, pattern, x_guess, width_guess] = est_pattern_orientation( img, bw_fluor );
                 if( ~isempty( thetaD ) )
                     [x, x_p, y] = find_stripe_locations( thetaD, img, pattern, img_dims, bw_dic );
-                    if( length(x_p) > 10 )
-                        continue
-                    end
+                    
+
+%                     if( length(x_p) > 10 )
+%                         continue
+%                     end
                     stripe_bw = ...
                         generate_stripe_bw( round(x_p), thetaD, img_dims, round(width_guess), bw_fluor  );
                     temp_img = img;
                     stripe_bw = and( stripe_bw, bw_dic );
                     temp_img( bwperim( stripe_bw ) ) = max(max(temp_img));
-                    figure(1), imshow( temp_img, [] ), title('fluorescence found' )
+                    figure(5), imshow( temp_img, [] ), title('fluorescence found' )
                     subplot(1,2,2), imshow( bw_fluor, [] );
                     
                     fluor_pix = img( stripe_bw );
@@ -1404,7 +1407,7 @@ classdef CoverslideScanner < handle
                     this.Analysis.Fluorescence.stats(i).score = score;
                     this.Analysis.Fluorescence.img_stats(i) = img_stats;
                 else
-                    figure(1), title('no fluorescence found')
+                    figure(5), title('no fluorescence found')
                     subplot(1,2,2), imshow( zeros( size(img) ), [] );
                     this.Analysis.Fluorescence.stats(i).score = 0;
                 end

@@ -52,9 +52,9 @@ for i = 1:length( stripe_centers )
     if( length(stripe_locs) ~= size(stripe_crop,2) )
         error('stripe dimension mismatch')
     end
-    if( ~isempty( find( threshold_img(:,stripe_locs) > 0, 1 ) ) )
-        stripe_bw(:, stripe_locs) = or( stripe_bw(:,stripe_locs), stripe_crop );
-    end
+%     if( ~isempty( find( threshold_img(:,stripe_locs) > 0, 1 ) ) )
+     stripe_bw(:, stripe_locs) = or( stripe_bw(:,stripe_locs), stripe_crop );
+%     end
 end
 
 diff = size( stripe_bw ) - img_dims;

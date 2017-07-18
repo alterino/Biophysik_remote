@@ -7,7 +7,7 @@ img_stats = struct('max_var', [], 'max', []);
 img_stats.var = max( var( double( img ) ) );
 img_stats.max = max( max( double( img ) ) );
 
-threshInt = multithresh(img,2);
+threshInt = multithresh(img,1);
 
 img_bw = ( img > min(threshInt) );
 img_bw = medfilt2( img_bw, [4 4] );
