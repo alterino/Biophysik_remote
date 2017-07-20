@@ -33,9 +33,11 @@ classdef classMicroManagerWrapper < handle
         CleanupFilter
         LocationClassifier
         
+        ScreenShot = ScreenHandler;
+        
         JavaRobot
         MicManPath = 'C:\Program Files\Micro-Manager-1.4';
-        Profile = 'Roboscope2.cfg';
+        Profile = 'Roboscope.cfg';
     end %properties
     properties(Access=private)
         PhysPxSize = 6.5; %[µm] sCMOS Hamamatsu ORCA Flash
@@ -74,14 +76,7 @@ classdef classMicroManagerWrapper < handle
     
     methods
         %% constructor
-        function this = classMicroManagerWrapper
-            import_java(this)
-            
-            import java.awt.Robot;
-            this.JavaRobot = Robot;
-            this.JavaRobot.delay(0)
-            this.JavaRobot.setAutoDelay(0)
-            this.JavaRobot.setAutoWaitForIdle(1)
+        function this = classMicroManagerWrapper            
         end %fun
         function import_java(this)
             if not(exist(this.MicManPath,'dir') == 7)
@@ -96,6 +91,15 @@ classdef classMicroManagerWrapper < handle
             if nargin == 1
                 mode = '';
             end %if
+            
+            %%
+            import_java(this)
+                        
+            import java.awt.Robot;
+            this.JavaRobot = Robot;
+            this.JavaRobot.delay(0)
+            this.JavaRobot.setAutoDelay(0)
+            this.JavaRobot.setAutoWaitForIdle(1)
             
             switch mode
                 case 'GUI'
@@ -115,7 +119,7 @@ classdef classMicroManagerWrapper < handle
                     
                     %some general settings to start with
                     set_light_path_state(this,1) %set to camera (in case)
-                    set_pixel_binning(this,2)
+                    set_pixel_binning(this,1)
                     set_exposure_time(this,30) %[ms]
                     set_auto_focus_search_range(this,500)
                     %                     set_piezo_z_position_micron(this,10)
@@ -174,6 +178,7 @@ classdef classMicroManagerWrapper < handle
             %                 fprintf('\n%s\n',msg)
             %             fprintf('\nPiezo Stage not detected.\n')
             %             end %try
+            get_cellsense_interface(this)
         end %fun
         
         function get_core(this)
@@ -252,29 +257,29 @@ classdef classMicroManagerWrapper < handle
             this.Laser = classLaserControlWrapper(this);
             
             %make sure internal state matches
-            set_laser_power(this.Laser,405,...
-                get_laser_power(this.Laser,405))
-            pause(0.05)
-            
-            set_laser_power(this.Laser,488,...
-                get_laser_power(this.Laser,488))
-            pause(0.05)
-            
-            set_laser_power(this.Laser,561,...
-                get_laser_power(this.Laser,561))
-            pause(0.05)
-            
-            set_laser_power(this.Laser,640,...
-                get_laser_power(this.Laser,640))
-            pause(0.05)
+            %             set_laser_power(this.Laser,405,...
+            %                 get_laser_power(this.Laser,405))
+            %             pause(0.05)
+            %
+            %             set_laser_power(this.Laser,488,...
+            %                 get_laser_power(this.Laser,488))
+            %             pause(0.05)
+            %
+            %             set_laser_power(this.Laser,561,...
+            %                 get_laser_power(this.Laser,561))
+            %             pause(0.05)
+            %
+            %             set_laser_power(this.Laser,640,...
+            %                 get_laser_power(this.Laser,640))
+            %             pause(0.05)
         end %fun
         function get_cleanup_filter(this)
             this.CleanupFilter = classCleanupFilterWrapper(this);
             
             %make sure internal state matches
-            set_cleanup_filter_set(this.CleanupFilter,...
-                get_cleanup_filter_set(this.CleanupFilter))
-            pause(0.05)
+            %             set_cleanup_filter_set(this.CleanupFilter,...
+            %                 get_cleanup_filter_set(this.CleanupFilter))
+            %             pause(0.05)
         end %fun
         
         %% hardware configuration
@@ -885,12 +890,22 @@ classdef classMicroManagerWrapper < handle
                 'PositionXY',get_xy_pos_micron(this),...
                 'StageZ',get_objective_stage_z_position(this),...
                 'StateZDC',get_auto_focus_state(this),...
-                'OffsetZDC',get_auto_focus_offset(this),...
-                'PiezoZ',get_piezo_z_position(this),...
-                'StateTIRF',get_fiber_state(this.TIRF),...
-                'PosTIRF',get_fiber_position(this.TIRF),...
-                'StateLaser',get_laser_state(this.Laser),...
-                'PowerLaser',get_laser_power(this.Laser));
+                'OffsetZDC',get_auto_focus_offset(this));
+            %             meta = struct(...
+            %                 'Time',datevec(now),...
+            %                 'ExposureTime',get_exposure_time(this),...
+            %                 'CameraROI',get_camera_ROI(this),...
+            %                 'PixelBinning',get_pixel_binning(this),...
+            %                 'PixelSize',get_img_px_size(this),...
+            %                 'PositionXY',get_xy_pos_micron(this),...
+            %                 'StageZ',get_objective_stage_z_position(this),...
+            %                 'StateZDC',get_auto_focus_state(this),...
+            %                 'OffsetZDC',get_auto_focus_offset(this),...
+            %                 'PiezoZ',get_piezo_z_position(this),...
+            %                 'StateTIRF',get_fiber_state(this.TIRF),...
+            %                 'PosTIRF',get_fiber_position(this.TIRF),...
+            %                 'StateLaser',get_laser_state(this.Laser),...
+            %                 'PowerLaser',get_laser_power(this.Laser));
         end %fun
         
         %% checker
@@ -927,11 +942,9 @@ classdef classMicroManagerWrapper < handle
         %------ Rectangular scanning
         function [x,y,bad] = set_rectangular_path(this,numX,numY)
             %calculate stepsize to produce no overlap
-            %             pxSize = get_img_px_size(this); %[µm]
-            pxSize = 0.108; %[µm]
-            %             imgWidth = this.CoreAPI.getImageWidth()*pxSize;
-            %             imgHeight = this.CoreAPI.getImageHeight()*pxSize;
-            imgWidth = 1200*pxSize; imgHeight = 1200*pxSize;
+            pxSize = get_img_px_size(this); %[µm]
+            imgWidth = this.CoreAPI.getImageWidth()*pxSize;
+            imgHeight = this.CoreAPI.getImageHeight()*pxSize;
             
             totalHeight = numY*imgHeight;
             totalWidth = numX*imgWidth;
@@ -949,37 +962,24 @@ classdef classMicroManagerWrapper < handle
             x(bad) = [];
             y(bad) = [];
         end %fun
-        
-        function [imgPtsY, imgPtsX] = image_centers_to_idx( this, x, y )
+        function [imgPtsX, imgPtsY] = scan_center_to_img_idx( this, x, y, numX, numY )
             if( length(x) > 1 || length(y) > 1 )
                 error('x and y should be scalar inputs')
             end
             
-            pxSize = .108;
+            pxSize = get_img_px_size(this);
+            ROI = get_camera_ROI(this);
+            imgWidth = ROI(3);
+            imgHeight = ROI(4);
             
-            imgWidth = this.CoreAPI.getImageWidth()*pxSize;
-            imgHeight = this.CoreAPI.getImageHeight()*pxSize;
+            totalHeight = numY*imgHeight*pxSize;
+            totalWidth = numX*imgWidth*pxSize;
             
-            x_start_idx = ( ( x - this.XYStageCtr(1) + totalWidth/2)/pxSize - imgWidth/2 )/imgWidth + 1;
-            y_start_idx = ( ( y - this.XYStageCtr(2) + totalHeight/2)/pxSize - imgHeight/2 )/imgHeight + 1;
+            x_start_idx = uint16( ( ( x - this.XYStageCtr(1) + totalWidth/2)/pxSize - imgWidth/2 )/imgWidth + 1 );
+            y_start_idx = uint16( ( ( y - this.XYStageCtr(2) + totalHeight/2)/pxSize - imgHeight/2 )/imgHeight + 1 );
             
-            imgPtsX = x_start_idx:imgWidth;
-            imgPtsY = y_start_idx:imgHeight;
-        end
-        
-        function [x_scan, y_scan] = image_center_to_scan_center( this, x_img, y_img, numX, numY )
-
-            
-            pxSize = .108;
-            
-            imgWidth = this.CoreAPI.getImageWidth()*pxSize;
-            imgHeight = this.CoreAPI.getImageHeight()*pxSize;
-            totalWidth = numX*imgWidth;
-            totalHeight = numY*imgHeight;
-            
-            x_scan = x_img*pxSize - totalWidth/2;
-            y_scan = y_img*pxSize - totalWidth/2;
-            
+            imgPtsX = uint16( meshgrid( (x_start_idx-1)*imgWidth+1:x_start_idx*imgWidth ) );
+            imgPtsY = uint16( meshgrid( (y_start_idx-1)*imgHeight+1:y_start_idx*imgHeight )' );
         end
         
         function [img,x,y,img_] = acq_rectangular_path_DIC(this,numX,numY)
@@ -1006,14 +1006,14 @@ classdef classMicroManagerWrapper < handle
             img = horzcat(imgCol{:});
         end %fun
         function [img,meta] = acq_path_DIC(this,x,y)
-            set_laser_state(this.Laser,405,0); %switch off laser
-            pause(0.05)
-            set_laser_state(this.Laser,488,0); %switch off laser
-            pause(0.05)
-            set_laser_state(this.Laser,561,0); %switch off laser
-            pause(0.05)
-            set_laser_state(this.Laser,640,0); %switch off laser
-            pause(0.05)
+            %             set_laser_state(this.Laser,405,0); %switch off laser
+            %             pause(0.05)
+            %             set_laser_state(this.Laser,488,0); %switch off laser
+            %             pause(0.05)
+            %             set_laser_state(this.Laser,561,0); %switch off laser
+            %             pause(0.05)
+            %             set_laser_state(this.Laser,640,0); %switch off laser
+            %             pause(0.05)
             
             set_filter_revolver_position(this,5) %put analysator (2nd polarizer)
             %             set_transmission_lamp_shutter_state(this,1) %open bright-field lamp shutter (in case)
@@ -1024,12 +1024,9 @@ classdef classMicroManagerWrapper < handle
             img = cell(numFrame,1);
             for idxPos = 1:numFrame
                 set_xy_pos_micron(this,[x(idxPos) y(idxPos)]) %move stage
-                pause(0.5) %delay for the auto-focus to adapt
+                pause(0.1) %delay for the auto-focus to adapt
                 
                 [img{idxPos,1},meta(idxPos,1)] = snap_img_DIC(this); %acquire image
-                
-                testX = ( ( X - this.XYStageCtr(1) + totalWidth/2)/pxSize - imgWidth/2 )/imgWidth + 1;
-                testY = ( ( Y - this.XYStageCtr(2) + totalHeight/2)/pxSize - imgHeight/2 )/imgHeight + 1;
                 
                 [hImg,~,hFig] = classMicroManagerWrapper.live_acquisition(img{idxPos,1},hImg);
                 sprintf('Acquisition: %d/%d',idxPos,numFrame)
@@ -1039,6 +1036,7 @@ classdef classMicroManagerWrapper < handle
             %             set_transmission_lamp_shutter_state(this,0) %close bright-field lamp shutter (in case)
         end %fun
         function [img,meta] = snap_img_DIC(this)
+            set_filter_revolver_position(this,5)
             set_cleanup_filter_set(this.CleanupFilter,5) %remove any cleanup filter
             set_transmission_lamp_shutter_state(this,1)
             
@@ -1090,6 +1088,7 @@ classdef classMicroManagerWrapper < handle
             close(hFig)
         end %fun
         function [img,meta] = snap_img_fluorescence(this,laser)
+            set_filter_revolver_position(this,0)
             set_cleanup_filter_set(this.CleanupFilter,laser) %put respective cleanup filter
             set_laser_state(this.Laser,laser,1); %switch on laser
             
@@ -1232,7 +1231,7 @@ classdef classMicroManagerWrapper < handle
         
         function scan_and_lock_into_auto_focus(this)
             zmin = 4000; %[µm]
-            dz = 250; %[µm]
+            dz = 150; %[µm]
             zmax = this.StageMaxLimit - 0.9*get_auto_focus_search_range(this); %[µm]
             
             z = zmin;

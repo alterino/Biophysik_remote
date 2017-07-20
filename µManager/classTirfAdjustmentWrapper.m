@@ -21,20 +21,20 @@ classdef classTirfAdjustmentWrapper < handle
         
         FiberState405 = 0
         FiberPos405 = 0
-        posFiber405Check = [38,132]
-        posFiber405Edit = [302,132]
+        posFiber405Check
+        posFiber405Edit
         FiberState488 = 0
         FiberPos488 = 0
-        posFiber488Check = [38,165]
-        posFiber488Edit = [302,165]
+        posFiber488Check
+        posFiber488Edit
         FiberState561 = 0
         FiberPos561 = 0
-        posFiber561Check = [38,198]
-        posFiber561Edit = [302,198]
+        posFiber561Check
+        posFiber561Edit
         FiberState640 = 0
         FiberPos640 = 0
-        posFiber640Check = [38,231]
-        posFiber640Edit = [302,231]
+        posFiber640Check
+        posFiber640Edit
     end %properties
     
     methods
@@ -42,6 +42,34 @@ classdef classTirfAdjustmentWrapper < handle
         function this = classTirfAdjustmentWrapper(parent)
             this.Parent = parent;
         end %fun
+        
+        function set_fiber_state_toggle_pos(this,fiber)
+            [x,y] = get_screen_coordinate(this.Parent.ScreenShot);
+            switch fiber
+                case 405
+                    this.posFiber405Check = [x,y];
+                case 488
+                    this.posFiber488Check = [x,y];
+                case 561
+                    this.posFiber561Check = [x,y];
+                case 640
+                    this.posFiber640Check = [x,y];
+            end %switch
+        end %fun
+        function set_fiber_state_edit_pos(this,fiber)
+            [x,y] = get_screen_coordinate(this.Parent.ScreenShot);
+            switch fiber
+                case 405
+                    this.posFiber405Edit = [x,y];
+                case 488
+                    this.posFiber488Edit = [x,y];
+                case 561
+                    this.posFiber561Edit = [x,y];
+                case 640
+                    this.posFiber640Edit = [x,y];
+            end %switch
+        end %fun
+        
         
         %% getter
         function state = get_fiber_state(this,fiber)

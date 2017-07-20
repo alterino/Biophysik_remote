@@ -18,26 +18,53 @@ classdef classLaserControlWrapper < handle
         
         LaserState405 = 0
         LaserPower405 = 0
-        posLaser405Toggle = [582,173]
-        posLaser405Edit = [729,173]
+        posLaser405Toggle
+        posLaser405Edit
         LaserState488 = 0
         LaserPower488 = 5
-        posLaser488Toggle = [582,209]
-        posLaser488Edit = [729,209]
+        posLaser488Toggle
+        posLaser488Edit
         LaserState561 = 0
         LaserPower561 = 5
-        posLaser561Toggle = [582,245]
-        posLaser561Edit = [729,245]
+        posLaser561Toggle
+        posLaser561Edit
         LaserState640 = 0
         LaserPower640 = 0
-        posLaser640Toggle = [582,281]
-        posLaser640Edit = [729,281]
+        posLaser640Toggle
+        posLaser640Edit
     end %properties
     
     methods
         %% constructor
         function this = classLaserControlWrapper(parent)
             this.Parent = parent;
+        end %fun
+        
+        function set_laser_state_toggle_pos(this,laser)
+            [x,y] = get_screen_coordinate(this.Parent.ScreenShot);
+            switch laser
+                case 405
+                    this.posLaser405Toggle = [x,y];
+                case 488
+                    this.posLaser488Toggle = [x,y];
+                case 561
+                    this.posLaser561Toggle = [x,y];
+                case 640
+                    this.posLaser640Toggle = [x,y];
+            end %switch
+        end %fun
+        function set_laser_state_edit_pos(this,laser)
+            [x,y] = get_screen_coordinate(this.Parent.ScreenShot);
+            switch laser
+                case 405
+                    this.posLaser405Edit = [x,y];
+                case 488
+                    this.posLaser488Edit = [x,y];
+                case 561
+                    this.posLaser561Edit = [x,y];
+                case 640
+                    this.posLaser640Edit = [x,y];
+            end %switch
         end %fun
         
         %% getter
@@ -77,6 +104,7 @@ classdef classLaserControlWrapper < handle
                     this.LaserPower561,this.LaserPower640];
             end %if
         end %fun
+        
         %% setter
         function set_laser_state(this,laser,state)
             %parse input

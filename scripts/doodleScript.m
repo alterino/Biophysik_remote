@@ -1,3 +1,34 @@
+% var_vec = zeros( length(0:20), size(img_stack, 3) );
+% grad_vec = zeros( length(0,20), size(img_stack, 3) );
+var_vec = zeros( length(0:20), 1 );
+grad_vec = zeros( length(0:20), 1 );
+
+
+for sigma = 0:20
+    if( sigma == 0 )
+        temp = test;
+    else
+        temp = imgaussfilt( test, sigma );
+    end
+    var_vec(sigma+1) = var( double(temp(:)) );
+    grad_vec(sigma+1) = mean(mean(imgradient( temp )));
+end
+
+figure(1), subplot( 1,2,1), plot( 0:20, var_vec, 'b-' )
+subplot(1,2,2), plot( 0:20, grad_vec, 'b-' );
+
+% for i = 1:size( img_stack, 3 )
+%     for sigma = 0:20
+%
+%
+%
+%
+%
+%     end
+%
+% end
+
+
 % if( ~exist( 'dic_scan', 'var' ) )
 %     dic_scan = imread('T:\Marino\Microscopy\170706\DIC_170706_1455.tif');
 % end
@@ -181,35 +212,35 @@
 %     fluor_scan = imread( 'T:\Marino\Microscopy\170706\Fluor_405_170706_1724.tif' );
 % end
 % testing one
-if(~exist('fluor_scan', 'var' ))
-    fluor_scan = im2double(imread( 'T:\Marino\Microscopy\170706\Fluor_405_170706_1619.tif' ));
-end
-
-
-fluor_stack = img_2D_to_img_stack( fluor_scan, [1200 1200] );
-% 
+% if(~exist('fluor_scan', 'var' ))
+%     fluor_scan = im2double(imread( 'T:\Marino\Microscopy\170706\Fluor_405_170706_1619.tif' ));
+% end
+%
+%
+% fluor_stack = img_2D_to_img_stack( fluor_scan, [1200 1200] );
+%
 % tbl = struct('mean', [], 't_mean', [], 'tp_mean', [],...
 %     'var', [], 'max', [], 'class', [] );
-% 
-data = zeros( size( fluor_stack, 3), 4 );
-img_class = zeros( size( fluor_stack, 3 ), 1 );
-% 
-figure(1)
-for i = 1:size( fluor_stack, 3 )
-    temp_img = double(fluor_stack(:,:,i));
-    data(i,1) = mean( mean( double( temp_img) )  );
-    data(i,3) = max( max( double(temp_img) ) );
-    data(i,4) = var( var( double(temp_img ) ) );
-    temp_binary = imbinarize( temp_img, multithresh( temp_img ) );
-    data(i,2) = mean( temp_img( temp_binary==1 ) );
-    imshow( temp_img, [] )
-    img_class(i) = generate_binary_decision_dialog('balls', {'is there fluorescence?'});
-end
-data_col_labels = {'mean', 'thresholded_mean', 'max', 'var'};
-mdl = fitcsvm( data, img_class );
-save( 'fluor_svmmodel.mat', 'mdl', 'data', 'img_class', 'data_col_labels' );
+%
+% data = zeros( size( fluor_stack, 3), 4 );
+% img_class = zeros( size( fluor_stack, 3 ), 1 );
+% %
+% figure(1)
+% for i = 1:size( fluor_stack, 3 )
+%     temp_img = double(fluor_stack(:,:,i));
+%     data(i,1) = mean( mean( double( temp_img) )  );
+%     data(i,3) = max( max( double(temp_img) ) );
+%     data(i,4) = var( var( double(temp_img ) ) );
+%     temp_binary = imbinarize( temp_img, multithresh( temp_img ) );
+%     data(i,2) = mean( temp_img( temp_binary==1 ) );
+%     imshow( temp_img, [] )
+%     img_class(i) = generate_binary_decision_dialog('balls', {'is there fluorescence?'});
+% end
+% data_col_labels = {'mean', 'thresholded_mean', 'max', 'var'};
+% mdl = fitcsvm( data, img_class );
+% save( 'fluor_svmmodel.mat', 'mdl', 'data', 'img_class', 'data_col_labels' );
 % load('fluor_svmmodel.mat')
-% [label, score] = predict( mdl, data ); 
+% [label, score] = predict( mdl, data );
 
 % for i = 1:size( fluor_stack, 3 )
 %     hold off
@@ -217,10 +248,10 @@ save( 'fluor_svmmodel.mat', 'mdl', 'data', 'img_class', 'data_col_labels' );
 %     title( sprintf( 'label = %i, score = %.03f', label(i), score(i) ) )
 % end
 
-% 
+%
 % % [~,idx] = sort( img_means, 'descend' );
 % % img_class = zeros( length( img_means ), 1, 'logical' );
-% 
+%
 % figure(1)
 % for i = 1:length( idx )
 %     hold off
@@ -228,12 +259,12 @@ save( 'fluor_svmmodel.mat', 'mdl', 'data', 'img_class', 'data_col_labels' );
 %     title( sprintf( 'rank = %i, mu = %.2f, mu_t = %.2f, max=%.2f',...
 %         i, img_means(idx(i)), thresholded_means(idx(i)), img_maxes(idx(i)) ) )
 %     img_class(idx(i)) = generate_binary_decision_dialog('balls', {'is there fluorescence?'});
-%     
+%
 %     %     pause
 % end
-% 
+%
 % mdl = fitcsvm( data, img_class );
-% 
+%
 % data = [ img_means', thresholded_means', img_maxes', img_vars'  ];
 % remove_idx = [];
 % for i = 1:length( tbl )
@@ -241,5 +272,5 @@ save( 'fluor_svmmodel.mat', 'mdl', 'data', 'img_class', 'data_col_labels' );
 %        remove_idx = [remove_idx; i];
 %     end
 % end
-% 
+%
 % save('fluor_svmmodel.mat', 'mdl' )
