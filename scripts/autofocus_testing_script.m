@@ -1,7 +1,9 @@
 micMan = classMicroManagerWrapper;
 initialize_micro_manager(micMan,'')
 set_central_xy_pos(micMan)
+get_auto_focus_offset(micMan)
 
+set_pixel_binning(micMan,1)
 imgSize = 600;
 x0 = (2048-imgSize)/2;
 set_camera_ROI(micMan,[x0 x0 imgSize imgSize])
@@ -14,11 +16,11 @@ cleanup_filter_dropdown_pos(micMan.CleanupFilter)
 set_laser_state_toggle_pos(micMan.Laser,laser)
 
 numX = 5;
-numY = 5;
+numY = numX;
 
 [x,y,bad] = set_rectangular_path(micMan,numX,numY);
-x = reshape(x,[5 5])';
-y = reshape(y,[5 5])';
+x = reshape(x,[numX numX])';
+y = reshape(y,[numX numX])';
 
 z = zeros( size(x) );
 imgs = cell( size(x,1), size(y,1) );
@@ -37,11 +39,12 @@ set_auto_focus_state(micMan,0)
 
 %%
 for i = 1:size(x,1)
+    fprintf('\n\n***********i=%i***********\n\n',i)
     for j = 1:size(x,2)
         %         zPosition = get_objective_stage_z_position(micMan);
         set_xy_pos_micron( micMan,[x(i,j), y(i,j)] );
         %         set_objective_stage_z_position_micron( micMan,z(i,j) );
-        zPosition_vec = z(i,j)-2:.2:z(i,j)+2;
+        zPosition_vec = z(i,j)-10:.4:z(i,j)+10;
         
         img_stack = zeros( 600, 600, length( zPosition_vec ) );
         var_vec = zeros( length( zPosition_vec ), 1 );

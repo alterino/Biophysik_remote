@@ -19,7 +19,8 @@ classdef CoverslideScanner < handle
         
         Acq = struct(...
             'ScanSize',10,...
-            'LaserWvlnth',405) %[nm]
+            'LaserWvlnth',405,...
+            'z_fluor_est', []) %[nm]
         
         Analysis = struct( ...
             'DIC', struct('bw_img', [],...
@@ -794,6 +795,55 @@ classdef CoverslideScanner < handle
         
         function laser = get_laser(this)
             laser = this.Acq.LaserWvlnth;
+        end
+        
+        function get_z_focus_plane_fluorescence(this, z0)
+           
+            z_diff = -2:.2:2;
+            set_objective_stage_z_position_micron(this.MICMAN,z0)
+            grad_vec = zeros( length( z_diff, 1 ) );
+            for i =  1:length( z_diff )
+               
+                z = z0 + zdiff;
+                % should probably set laser power to low here
+                set_objective_stage_z_position_micron(this.MICMAN,z0) 
+                [img,~] = snap_img_fluorescence(this.MICMAN,laser);
+                grad_vec(i) = mean( imgradient( img ) );
+            end
+            
+            this.z_fluor_est = z0 + z_diff( grad_vec == max(grad_vec) );
+        end
+        
+        function get_z_optimal_plane_iterative(this)
+            
+            z0 = this.z_fluor_est;
+            inc = -.8:.2:.8;
+            grad_vec = zeros( 3, 1 );
+            end_flag = 0;
+            while(~end_flag)
+                for i = length(inc)
+                    z = z0 + inc(i);
+                    set_objective_stage_z_position_micron(this.MICMAN,z);
+                    % should probably set laser power to low here
+                    [img,~] = snap_img_fluorescence(this.MICMAN,laser);             
+                    grad_vec(i) = mean( imgradient( img ) );
+                end
+                opt_idx = find( grad_vec == max( grad_vec ) );
+                if( opt_idx == 1 || opt_idx == length( inc ) )
+                    z0 = z0 + inc(opt_idx);
+                    continue
+                else
+                   inc = inc( opt_idx-1:opt_idx+1 );
+                   if( inc(1) > inc(3) )
+                       inc = inc(1:2);
+                   else
+                       inc = inc(2:3);
+                end
+            end
+            
+            
+            
+            
         end
         
         %% setter
@@ -1581,7 +1631,7 @@ classdef CoverslideScanner < handle
         
         function set_fluorescence_stack(this, stack)
             this.Analysis.Fluorescence.img_stack = stack;
-            calculate_fluor_stats(this, stack);
+            calculate_fluorstack_stats(this, stack);
         end
         
         function set_DIC_stack(this, stack)

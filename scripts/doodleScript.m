@@ -1,21 +1,26 @@
 % var_vec = zeros( length(0:20), size(img_stack, 3) );
 % grad_vec = zeros( length(0,20), size(img_stack, 3) );
-var_vec = zeros( length(0:20), 1 );
-grad_vec = zeros( length(0:20), 1 );
-
-
-for sigma = 0:20
-    if( sigma == 0 )
-        temp = test;
-    else
-        temp = imgaussfilt( test, sigma );
-    end
-    var_vec(sigma+1) = var( double(temp(:)) );
-    grad_vec(sigma+1) = mean(mean(imgradient( temp )));
+% var_vec = zeros( length(0:20), 1 );
+% grad_vec = zeros( length(0:20), 1 );
+% 
+% 
+% for sigma = 0:20
+%     if( sigma == 0 )
+%         temp = test;
+%     else
+%         temp = imgaussfilt( test, sigma );
+%     end
+%     var_vec(sigma+1) = var( double(temp(:)) );
+%     grad_vec(sigma+1) = mean(mean(imgradient( temp )));
+% end
+% 
+% figure(1), subplot( 1,2,1), plot( 0:20, var_vec, 'b-' )
+% subplot(1,2,2), plot( 0:20, grad_vec, 'b-' );
+close all
+for i = 1 :size( img_stack, 3)
+   figure(1), imagesc( img_stack(:,:,i) ); 
+   pause(1)
 end
-
-figure(1), subplot( 1,2,1), plot( 0:20, var_vec, 'b-' )
-subplot(1,2,2), plot( 0:20, grad_vec, 'b-' );
 
 % for i = 1:size( img_stack, 3 )
 %     for sigma = 0:20
@@ -28,6 +33,13 @@ subplot(1,2,2), plot( 0:20, grad_vec, 'b-' );
 %
 % end
 
+% for j = 1:size( imgStack, 3 )
+% 
+%     img = mat2gray( imgStack(:,:,j) );
+%     var_vec(j) = var( img(:) );
+%     grad_vec(j) = mean( mean( imgradient( img ) ) );
+%     ent_vec(j) = entropy( img );        
+% end
 
 % if( ~exist( 'dic_scan', 'var' ) )
 %     dic_scan = imread('T:\Marino\Microscopy\170706\DIC_170706_1455.tif');
