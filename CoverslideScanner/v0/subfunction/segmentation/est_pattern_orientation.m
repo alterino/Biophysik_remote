@@ -26,7 +26,7 @@ x_guess = (y - b) / m;
 if( thetaD < 0 ), rot_ang = thetaD + 90;
 else, rot_ang = thetaD - 90; end
 
-pattern = floures_pattern_gen( ceil(width_guess), 0, size(img_crop), 1);
+pattern = floures_pattern_gen( floor(width_guess), 0, size(img_crop), 1);
 pattern = imrotate(pattern, rot_ang);
 % idx = 1;
 % % controls precision of theta

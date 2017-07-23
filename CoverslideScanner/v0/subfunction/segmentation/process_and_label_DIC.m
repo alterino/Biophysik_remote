@@ -16,12 +16,6 @@ end
 tic
 if( ~isa( dic_scan, 'double' ) )
     dic_scan = im2double(dic_scan);
-%     max_val = max( dic_scan ); min_val = min(dic_scan);
-%     while( length( max_val  ) > 1 )
-%         max_val = max(max_val); 
-%         min_val = min(min_val);
-%     end
-%     dic_scan = (dic_scan - min_val)/(max_val - min_val);
 end
 if( length( dims_scan ) == 3 )
     stack_bool = 1;
@@ -57,16 +51,9 @@ end
 se = strel('disk',4);
 ent_smooth = imclose(img_ent, se);
 
-tic
-% gmm clustering being fucked at the moment - clustering zeros of entropy
-% image as belonging to highest cluster... wtf
-% [label_img, bw_img] = ...
-
 thresh = multithresh(ent_smooth, 1);
 bw_img = cluster_img_threshold( ent_smooth, thresh, 10000 );
-% se = strel('disk',4);
-% bw_img2 = imopen( bw_img, se );
-% bw_img = cluster_img_gmm( ent_smooth, 2, 5000 );
+
 fprintf('clustering %i images took %i seconds\n', size(img_stack,3), toc );
 if( length( size(bw_img) ) == 2 )
     cc = bwconncomp( bw_img );
