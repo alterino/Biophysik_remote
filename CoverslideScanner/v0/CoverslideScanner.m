@@ -2060,8 +2060,27 @@ classdef CoverslideScanner < handle
             
         end
         
-        
-        
+        function [stats, labels] = process_and_label_dic_scan(this, dic_scan, img_dims)
+            if( ~exist( 'dic_scan', 'var' ) )
+                dic_scan = this.Acq.imgOV;
+                img_dims = get_img_size(this);
+            end
+            if( length(img_dims)==1 )
+               img_dims = [img_dims, img_dims]; 
+            end
+            
+            wind = this.Analysis.parameters.entropy_window;
+            
+            [bw_scan, cc, parameters, ent_smooth] = ...
+                process_and_label_DIC( dic_scan, img_dims, wind )
+            
+            for i = 1:length( cc )
+                
+                
+                
+            end
+            
+        end
         
     end %methods
 end %classdef
