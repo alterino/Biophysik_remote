@@ -1,4 +1,4 @@
-function [bw_img, cc] = ...
+function [bw_img, cc, parameters, ent_smooth] = ...
     process_and_label_DIC( dic_scan, img_dims, wind, scan_dims )
 %PROCESS_AND_LABEL_DIC takes a full DIC scan (dic_scan)
 % assumed to be a slide scan composed of smaller images of
@@ -7,6 +7,9 @@ function [bw_img, cc] = ...
 % evaluation of the connected components
 
 % load('gmm.mat')
+if( ~exist( 'scan_dims', 'var' ) && length( size( dic_scan ) ) == 3 )
+    error('scan dimensions must be specified if input is image stack.')
+end
 
 dims_scan = size( dic_scan );
 if( mod( dims_scan(1), img_dims(1))~= 0 ||...
@@ -53,6 +56,7 @@ ent_smooth = imclose(img_ent, se);
 
 thresh = multithresh(ent_smooth, 1);
 bw_img = cluster_img_threshold( ent_smooth, thresh, 10000 );
+parameters = struct( 'type', 'otzu', 'intensity_threshold', thresh );
 
 fprintf('clustering %i images took %i seconds\n', size(img_stack,3), toc );
 if( length( size(bw_img) ) == 2 )

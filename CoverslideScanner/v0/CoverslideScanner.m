@@ -15,7 +15,7 @@ classdef CoverslideScanner < handle
             'hRoi',[])
         BAR
         
-        GUI
+        GUI;
         
         Acq = struct(...
             'ScanSize',10,...
@@ -29,7 +29,15 @@ classdef CoverslideScanner < handle
                           'img_stack', [],...
                           'bw_stack_scan', [],...
                           'bw_stack_eval', [],...
-                          'stack_cc', [] ),...
+                          'stack_cc', [],...
+                          'test', struct('test_block', 2,...
+                                         'entropy_window', 9,...
+                                         'model', 'otzu',...
+                                         'threshold', [],...
+                                         'gmm', [],...
+                                         'imgOV', [],...
+                                         'img_entropy', [],...
+                                         'bw_img', []) ),...
             'Fluorescence', struct( 'img_stack', [],...
                                     'bw_stack', [],...
                                     'dims_dict_um', [[10, 5]; [5, 2]; [15, 10]; [40, 3]; [60 10]], ... %[um]
@@ -40,11 +48,15 @@ classdef CoverslideScanner < handle
                                                     'stripe_widths', [] ,...
                                                     'score', [],...
                                                     'score_rank', [],...
-                                                    'mean_rank', [] ) ),...
-            'parameters', struct('entropy_window', 9,...
+                                                    'mean_rank', [] ),...
+                          'test', struct('theta', 0,...
+                                         'stripe_width', 25,...
+                                         'space_width', 50 ) ),...
+            'parameters', struct( 'entropy_window', 9,...
                                   'eval_img_dims', [600 600],...
                                   'eval_scan_dims', [],...
-                                  'resize_ratio', [] ),...
+                                  'resize_ratio', [],...
+                                  'model', [] ),...
             'output_dir', pwd,...
             'filepaths', [] );
         
@@ -208,9 +220,25 @@ classdef CoverslideScanner < handle
             colormap(this.GUI.hAxLive,gray(256))
             axis(this.GUI.hAxLive,'image','ij')
             
-            %--------------------------------------------------------------
+            %------------------------------------------------------------
+            %% analysis controls
+            analysis_tab = uitab(this.GUI.hTabGrp,...
+                'BackgroundColor','w',...
+                'Title','Analysis View');
+            setup_analysis_layout(this, analysis_tab);
             
-            hPanel = uipanel(...
+            controls_panel = uipanel( this.GUI.hAnalysisSidebar,...
+                'Units','normalized',...
+                'Position',[0 4/5 1 1/5],...
+                'backgroundcolor','w',...
+                'BorderType', 'beveledout',...
+                'BorderWidth', 5); 
+            
+            setup_analysis_controls( this, controls_panel );
+            
+            %--------------------------------------------------------------
+ %%           
+            this.GUI.hPanelSidebar = uipanel(...
                 'Parent', this.hFig,...
                 'Units','normalized',...
                 'backgroundcolor','w',...
@@ -252,7 +280,7 @@ classdef CoverslideScanner < handle
             
             objPanelScan = add_param_panel(objMasterPanel,'MainPanelHeight',40);
             
-            initialize_param_ui(objMasterPanel,hPanel)
+            initialize_param_ui(objMasterPanel,this.GUI.hPanelSidebar)
             finalize_param_ui(objMasterPanel)
             
             %--------------------------------------------------------------
@@ -750,6 +778,135 @@ classdef CoverslideScanner < handle
                 'String',fullfile(filePath,[fileName,ext]))
         end %fun
         
+        function setup_analysis_controls(this, parent)
+            
+            uicontrol(...
+                'Parent',parent,...
+                'Style', 'pushbutton',...
+                'Units','normalized',...
+                'Position', [0 2/3 1/3 1/3],...
+                'FontUnits','normalized',...
+                'FontSize', 0.3,...
+                'String', 'Test DIC Model',...
+                'Callback', @(src,evnt)test_dic_segmentation(this));
+            
+            uicontrol(...
+                'Parent',parent,...
+                'Style', 'pushbutton',...
+                'Units','normalized',...
+                'Position', [1/3 2/3 1/3 1/3],...
+                'FontUnits','normalized',...
+                'FontSize', 0.3,...
+                'String', 'Test Stripe Model',...
+                'Callback', @(src,evnt)test_fluorescence_parameters(this));
+            
+            uicontrol(...
+                'Parent',parent,...
+                'Style', 'pushbutton',...
+                'Units','normalized',...
+                'Position', [2/3 2/3 1/3 1/3],...
+                'FontUnits','normalized',...
+                'FontSize', 0.3,...
+                'String', 'Advanced Testing',...
+                'Callback', @(src,evnt)advanced_parameter_test(this));
+            
+            uicontrol(...
+                'Parent',parent,...
+                'Style', 'pushbutton',...
+                'Units','normalized',...
+                'Position', [0 1/3 1/3 1/3],...
+                'FontUnits','normalized',...
+                'FontSize', 0.3,...
+                'String', 'Set Parameters',...
+                'Callback', @(src,evnt)set_model_parameters(this));
+            
+            uicontrol(...
+                'Parent',parent,...
+                'Style', 'pushbutton',...
+                'Units','normalized',...
+                'Position', [1/3 1/3 1/3 1/3],...
+                'FontUnits','normalized',...
+                'FontSize', 0.3,...
+                'String', 'Export model',...
+                'Callback', @(src,evnt)export_model(this));
+            
+            uicontrol(...
+                'Parent',parent,...
+                'Style', 'pushbutton',...
+                'Units','normalized',...
+                'Position', [2/3 1/3 1/3 1/3],...
+                'FontUnits','normalized',...
+                'FontSize', 0.3,...
+                'String', 'Export data',...
+                'Callback', @(src,evnt)export_testing_data(this));
+            
+            this.GUI.hSlid_threshold = uicontrol(...
+                'Parent',parent,...
+                'Style', 'slider',...
+                'Units','normalized',...
+                'Position', [0 0 1/2 1/10],...
+                'Callback', @(src,evnt)update_threshold(this, 'dic'));
+            
+            this.GUI.hStr_threshold = uicontrol(...
+                'Parent',parent,...
+                'Style', 'text',...
+                'Units','normalized',...
+                'Position', [0 1/6 1/2 1/8],...
+                'FontUnits','normalized',...
+                'FontSize', 0.7,...
+                'String', 'Threshold Control');
+            
+        end
+        
+        function setup_analysis_layout(this, analysis_tab)
+            this.GUI.hAnalysisSidebar = uipanel(this.hFig,...
+                'Units','normalized',...
+                'Position',[2/3 0.05 1/3 0.95],...
+                'backgroundcolor','w');
+            this.GUI.hAx_histogram = axes(...
+                'Parent',this.GUI.hAnalysisSidebar,...
+                'Units','normalized',...
+                'OuterPosition', [0 2/5 1 2/5],...
+                'Box','on' );
+            
+%             uicontrol(...
+%                 'Parent',this.GUI.hAnalysisSidebar,...
+%                 'Style', 'text',...
+%                 'Units','normalized',...
+%                 'Position', [1/5 19/10 4/5 1/20],...
+%                 'FontUnits','normalized',...
+%                 'FontSize', 0.7,...
+%                 'String', 'Histogram of entropy image');
+            
+            this.GUI.hAx_bwOverview = axes(...
+                'Parent',this.GUI.hAnalysisSidebar,...
+                'Units','normalized',...
+                'Position', [0 0 1 2/5],...
+                'Box','on',...
+                'XTickLabel', '',...
+                'YTickLabel', '',...
+                'XTick', [],...
+                'YTick', []);
+            colormap( this.GUI.hAx_bwOverview, 'gray' )
+            this.GUI.hImg_bw = imagesc(...
+                'xdata',[],'ydata',[],'cdata',[],...
+                'Parent',this.GUI.hAx_bwOverview);
+            
+            this.GUI.hAx_segmentedOverview = axes(...
+                'Parent',analysis_tab,...
+                'Units','normalized',...
+                'Position', [0 0 1 1],...
+                'Box','on',...
+                'XTickLabel', '',...
+                'YTickLabel', '',...
+                'XTick', [],...
+                'YTick', []);
+            colormap( this.GUI.hAx_segmentedOverview, 'gray' )
+            this.GUI.hImg_segged = imagesc(...
+                'xdata',[],'ydata',[],'cdata',[],...
+                'Parent',this.GUI.hAx_segmentedOverview);
+        end
+        
         %% getter
         function x = get_img_size(this)
             ROI = get_camera_ROI(this.MICMAN); %[i0,j0,w,h]
@@ -782,7 +939,7 @@ classdef CoverslideScanner < handle
             end %if
         end %fun
         
-        function dic_scan = get_dic_scan_img(this)
+        function dic_scan = get_dic_scan_img(this, testBool)
             dic_scan = this.Acq.imgOV;
         end
         function get_dic_bg(this)
@@ -1086,11 +1243,30 @@ classdef CoverslideScanner < handle
         function set_tab(this,evnt)
             switch get(evnt.NewValue,'Title')
                 case 'Live View'
+                    set(this.GUI.hAnalysisSidebar,...
+                        'visible','off')
+                    set(this.GUI.hPanelSidebar,...
+                        'visible','on')
+                    set(this.GUI.hTabGrp,...
+                        'Position',[0 0 2/3 1])
                     start(this.Acq.LiveViewTimer);
+                case 'Analysis View'
+                    set(this.GUI.hPanelSidebar,...
+                        'visible','off')
+                    set(this.GUI.hAnalysisSidebar,...
+                        'visible','on')
+%                     set(this.GUI.hTabGrp,...
+%                         'Position',[0 0 3/4 1])
                 otherwise
+                    set(this.GUI.hAnalysisSidebar,...
+                        'visible','off')
+                    set(this.GUI.hPanelSidebar,...
+                        'visible','on')
+                    set(this.GUI.hTabGrp,...
+                        'Position',[0 0 2/3 1])
                     stop(this.Acq.LiveViewTimer);
             end %switch
-        end %for
+        end %fun
         
         
         function set_analysis_stats( this, idx, score, thetaD, width_guess, num_stripes )
@@ -1205,6 +1381,52 @@ classdef CoverslideScanner < handle
             %%
             stop_live_view(this)
         end %fun
+        
+        function test_overview_dic(this)
+           start_live_view(this)
+           
+           test_block_dim = this.Analysis.DIC.test.test_block;
+           
+            %%
+            [x,y,bad] = set_rectangular_path(this.MICMAN,...
+                test_block_dim, test_block_dim);
+            [totalHeight,totalWidth] = get_overview_size(this,'px');
+            
+            for idxPos = 1:sum(not(bad(:)))
+                set_xy_pos_micron(this.MICMAN,[x(idxPos) y(idxPos)]) %move stage
+                pause(0.1) %delay for the auto-focus to adapt
+                
+                %%
+                img = snap_img(this.MICMAN);
+                
+                if get(this.GUI.hCheckFlatFieldCorr,'value')
+                    img = img - this.Acq.ImgDicBg;
+                end %if
+                
+                [j,i] = scan_center_to_img_idx(...
+                    this.MICMAN,x(idxPos),y(idxPos),...
+                    this.Acq.ScanSize,this.Acq.ScanSize);
+                idx = sub2ind([totalHeight,totalWidth],i(:),j(:));
+                
+                this.Analysis.DIC.test.imgOV(idx) = img(:);
+                clim = nanquantile(this.Acq.imgOV,[0.01 0.99]);
+                
+                set(this.GUI.hImgFocus,...
+                    'cdata',this.Analysis.DIC.test.imgOV)
+                set(this.GUI.NAVI.hImg,...
+                    'cdata',this.Analysis.DIC.test.imgOV)
+                
+                set(this.GUI.hAxFocus,'clim',clim)
+                %                 caxis(this.GUI.hAxFocus,clim)
+                caxis(this.GUI.NAVI.hAx,clim)
+            end %for
+            
+            %%
+            stop_live_view(this)
+            
+            
+            
+        end
         
         function start_live_view(this)
             set([this.GUI.hDropAcqMode,...
@@ -1437,51 +1659,57 @@ classdef CoverslideScanner < handle
             export_output(this);
             view_results(this);
         end
-        function eval_DIC_scan(this, img_dims)
+        function parameters = eval_DIC_scan(this, img_dims, dic_scan, isTest)
             if( ~exist( 'img_dims', 'var' ) )
                 img_dims = get_img_size(this);
             end
-            dic_scan = get_dic_scan_img(this);
-            %             img_dims = [600, 600];
+            if( ~exist( 'dic_scan', 'var' ) )
+                dic_scan = get_dic_scan_img(this);
+                wind = this.Analysis.parameters.entropy_window;
+            else
+                wind = this.Analysis.DIC.test.entropy_window; 
+            end
             if( length(img_dims) == 1 )
                 img_dims = [img_dims, img_dims];
             end
-            %             wind = 9;
-            wind = this.Analysis.parameters.entropy_window;
-            [bw_img, cc] = ...
+               
+            [bw_img, cc, parameters] = ...
                 process_and_label_DIC( dic_scan, img_dims, wind );
-            bw_stack = [];
-            for i = 1:length(cc.stats)
-                bb = cc.stats(i).BoundingBox;
-                if( bb(3) > img_dims(2) || bb(4) > img_dims(1) )
-                    cc.stats(i).keep_bool = false;
-                else
-                    cc.stats(i).keep_bool = true;
-                    center_pt = round(cc.stats(i).BB_center);
-                    rows = [ center_pt(2)-img_dims(1)/2+1, center_pt(2)+img_dims(1)/2 ];
-                    cols = [ center_pt(1)-img_dims(2)/2+1, center_pt(1)+img_dims(2)/2 ];
-                    bw = zeros( size( dic_scan ), 'logical' );
-                    bw = extract_subimage( bw, rows, cols );
-                    bw_stack = cat( 3, bw_stack, bw );  
+            if( ~exists( 'isTest', 'var' ) || isTest == 0 )
+                bw_stack = [];
+                for i = 1:length(cc.stats)
+                    bb = cc.stats(i).BoundingBox;
+                    if( bb(3) > img_dims(2) || bb(4) > img_dims(1) )
+                        cc.stats(i).keep_bool = false;
+                    else
+                        cc.stats(i).keep_bool = true;
+                        center_pt = round(cc.stats(i).BB_center);
+                        rows = [ center_pt(2)-img_dims(1)/2+1, center_pt(2)+img_dims(1)/2 ];
+                        cols = [ center_pt(1)-img_dims(2)/2+1, center_pt(1)+img_dims(2)/2 ];
+                        bw = zeros( size( dic_scan ), 'logical' );
+                        bw = extract_subimage( bw, rows, cols );
+                        bw_stack = cat( 3, bw_stack, bw );  
+                    end
                 end
+                this.Analysis.DIC.bw_stack_scan = bw_stack;
+                this.Analysis.DIC.bw_img = bw_img;
+                this.Analysis.DIC.scan_cc = cc;
+            else
+                parameters.bw_img = bw_img;
+                parameters.cc = cc;
             end
-            this.Analysis.DIC.bw_stack_scan = bw_stack;
-            this.Analysis.DIC.bw_img = bw_img;
-            this.Analysis.DIC.scan_cc = cc;
         end
-        
         function eval_selected_images(this, img_dims, scan_dims, isTest)
             dic_stack = this.Analysis.DIC.img_stack;
 %             fluor_stack = this.Analysis.Fluorescence.img_stack;
             wind = 9;
-            [bw_stack, cc] = ...
+            [bw_stack, cc, parameters] = ...
                 process_and_label_DIC( dic_stack, img_dims, wind, scan_dims );
             this.Analysis.DIC.stack_cc = cc;
             this.Analysis.DIC.bw_stack_eval = bw_stack;
             %             simplified_fluorescence_eval(this);
             eval_fluorescence_images(this, img_dims, isTest)
         end
-        
         function eval_fluorescence_images(this, img_dims, isTest)
             if( ~exist( 'img_dims', 'var' ) )
                 img_dims = get_img_size(this);
@@ -1539,15 +1767,13 @@ classdef CoverslideScanner < handle
             
             
         end
-        
         function get_pattern_orientation(this, img_dims)
             
-           
-            
-            
+           % *************************************
+           % marker for a function that should be written 
+           % ************************************ 
             
         end
-        
         function simplified_fluorescence_eval(this)
             fluor_stack = im2double(this.Analysis.Fluorescence.img_stack);
             fluor_bw_stack = zeros( size( fluor_stack ), 'logical' );
@@ -1588,7 +1814,6 @@ classdef CoverslideScanner < handle
                 this.Analysis.DIC.stack_cc.stats(i).rank = sorted_idx(i);
             end
         end
-        
         function view_results(this)
             fluor_stack = this.Analysis.Fluorescence.img_stack;
             fluor_bw_stack = this.Analysis.Fluorescence.bw_stack;
@@ -1609,7 +1834,6 @@ classdef CoverslideScanner < handle
                 title(sprintf('ranking = %i', i));
             end
         end
-        
         function [x_scan, y_scan] = image_center_to_scan_center( this, x_img, y_img, numX, numY )
             % need to get pxSize here
             pxSize = 1;
@@ -1622,7 +1846,6 @@ classdef CoverslideScanner < handle
             y_scan = double(y_img)*pxSize - totalHeight/2 + this.XYStageCtr(2);
             
         end
-        
         function test_eval(this, dic_scan, fluor_scan, old_dims)
 %             init_eval(this);
             dic_scan_type = class( dic_scan );
@@ -1654,7 +1877,6 @@ classdef CoverslideScanner < handle
 %             export_output(this);
 %             view_results(this);
         end
-        
         function get_ROI_images(this, x, y)
             
             img_dims = get_img_size(this);
@@ -1685,7 +1907,6 @@ classdef CoverslideScanner < handle
             set_fluorescence_stack(this, fluor_stack);
             set_DIC_stack(this, dic_stack);
         end
-        
         function calculate_fluorstack_stats(this, stack)
            for i = 1:size( stack, 3)
                img = stack(:,:,i);
@@ -1694,16 +1915,13 @@ classdef CoverslideScanner < handle
                this.Analysis.Fluorescence.stats(i).max = max( double( img(:) ) );
            end
         end
-        
         function set_fluorescence_stack(this, stack)
             this.Analysis.Fluorescence.img_stack = stack;
             calculate_fluorstack_stats(this, stack);
         end
-        
         function set_DIC_stack(this, stack)
             this.Analysis.DIC.img_stack = stack;
         end
-        
         function init_eval(this)
            parent_dir = uigetdir( pwd ); 
            date_str = datestr(now, 'yyyymmdd');
@@ -1714,7 +1932,6 @@ classdef CoverslideScanner < handle
            
            this.Analysis.output_dir = strcat( output_dir, '\' );
         end
-        
         function export_output(this)
             fluor_stack = this.Analysis.Fluorescence.img_stack;
             fluor_bw_stack = this.Analysis.Fluorescence.bw_stack;
@@ -1741,6 +1958,110 @@ classdef CoverslideScanner < handle
             this.Analysis.filepaths = filepaths;
             imwrite( dic_scan, strcat( this.Analysis.output_dir, 'overview_scan.tiff' ) );
         end
+        
+        %% analysis testing callbacks
+        
+        function test_dic_segmentation(this, dic_scan, img_dims)
+            
+            if( ~exist('dic_scan', 'var') )
+                test_overview_dic(this);
+                dic_scan = this.Analysis.DIC.test.imgOV;
+            else
+                this.Analysis.DIC.test.imgOV = dic_scan;
+            end
+            if( ~exist( 'img_dims', 'var' ) )
+                img_dims = get_img_size(this);
+            end
+            if( length(img_dims) == 1)
+                img_dims = [img_dims, img_dims];
+            end
+            scan_dims = size( dic_scan );
+            
+            wind = this.Analysis.DIC.test.entropy_window;
+            [bw_scan, cc, parameters, img_entropy] = ...
+                process_and_label_DIC( dic_scan, img_dims, wind, scan_dims );
+            
+            this.Analysis.DIC.test.bw_img = bw_scan;
+            this.Analysis.DIC.test.cc = cc;
+            this.Analysis.DIC.test.model = parameters.type;
+            this.Analysis.DIC.test.threshold = parameters.intensity_threshold;
+            this.Analysis.DIC.test.img_entropy = img_entropy;
+            update_threshold_slider(this, 'dic');
+            update_analysis_tabview(this, 'dic');
+            
+        end
+        
+        function update_analysis_tabview(this, mode)
+            switch mode
+                case 'dic'
+                    img_bw = this.Analysis.DIC.test.bw_img;
+                    img_OV = this.Analysis.DIC.test.imgOV;
+                    img_OV( bwperim( imfill( img_bw, 'holes' ) ) ) = max( img_OV(:) );
+                    
+  
+                    set( this.GUI.hImg_bw, 'xdata', 1:size(img_bw, 2) );
+                    set( this.GUI.hImg_bw, 'ydata', 1:size(img_bw, 1) );
+                    set( this.GUI.hImg_bw, 'cdata', imfill( img_bw, 'holes' ) );
+                    
+                    set( this.GUI.hImg_segged, 'xdata', 1:size(img_OV, 2) );
+                    set( this.GUI.hImg_segged, 'ydata', 1:size(img_OV, 1) );
+                    set( this.GUI.hImg_segged, 'cdata', img_OV ); 
+                    
+                    hist( this.Analysis.DIC.test.img_entropy(:), 100,...
+                                'Parent', this.GUI.hAx_histogram,...
+                                'XLabel', 'entropy intensity');
+                otherwise
+                    
+            end
+            
+        end
+        
+        function update_threshold_slider(this, mode)
+            switch mode
+                case 'dic'
+                    set( this.GUI.hSlid_threshold, 'Min', min( this.Analysis.DIC.test.img_entropy(:) ) );
+                    set( this.GUI.hSlid_threshold, 'Max', max( this.Analysis.DIC.test.img_entropy(:) ) );
+                    set( this.GUI.hSlid_threshold, 'Value', this.Analysis.DIC.test.threshold );
+                otherwise
+                    
+            end
+        end
+        
+        function set_dic_clustering_model(this)
+             this.Analysis.parameter.model.type = this.Analysis.DIC.test.model;
+             switch this.Analysis.parameter.model.type  
+                 case 'otzu'
+                     this.Analysis.parameter.model.threshold = this.Analysis.DIC.test.threshold;
+                 case 'gmm'
+                     this.Analysis.parameter.model.gmm = this.Analysis.DIC.test.gmm;
+                 otherwise
+                     error('unknown model type specified')
+             end
+        end
+        
+        function update_threshold(this, mode)
+            
+            size_thresh = 10000;
+            switch mode
+                case 'dic'
+                    this.Analysis.DIC.test.threshold = get( this.GUI.hSlid_threshold, 'Value' );
+                    bw_img = imbinarize( this.Analysis.DIC.test.img_entropy,...
+                                                        this.Analysis.DIC.test.threshold );
+                    cc = bwconncomp(bw_img);
+                    if( exist('size_thresh', 'var') && ~isempty(size_thresh) )
+                        bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
+                        bw_img(vertcat(cc.PixelIdxList{bSmall})) = 0;
+                    end
+                    this.Analysis.DIC.test.bw_img = bw_img;
+                otherwise
+            end
+                                            
+            update_analysis_tabview(this, mode);
+            
+        end
+        
+        
+        
         
     end %methods
 end %classdef
