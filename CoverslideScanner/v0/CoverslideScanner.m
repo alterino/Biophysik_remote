@@ -57,6 +57,7 @@ classdef CoverslideScanner < handle
                                   'eval_scan_dims', [],...
                                   'resize_ratio', [],...
                                   'model', [] ),...
+            'state_data', [],...
             'output_dir', pwd,...
             'filepaths', [] );
         
@@ -778,6 +779,7 @@ classdef CoverslideScanner < handle
                 'String',fullfile(filePath,[fileName,ext]))
         end %fun
         
+        %% added for analysis tab controls
         function setup_analysis_controls(this, parent)
             
             uicontrol(...
@@ -844,20 +846,54 @@ classdef CoverslideScanner < handle
                 'Parent',parent,...
                 'Style', 'slider',...
                 'Units','normalized',...
-                'Position', [0 0 1/2 1/10],...
-                'Callback', @(src,evnt)update_threshold(this, 'dic'));
+                'Position', [0.05 0 0.4 1/10],...
+                'Callback', @(src,evnt)update_threshold(this, 'dic') );
             
             this.GUI.hStr_threshold = uicontrol(...
                 'Parent',parent,...
                 'Style', 'text',...
                 'Units','normalized',...
-                'Position', [0 1/6 1/2 1/8],...
+                'Position', [0.05 1/6 0.4 1/8],...
                 'FontUnits','normalized',...
                 'FontSize', 0.7,...
                 'String', 'Threshold Control');
             
+            uicontrol(...
+                'Parent',parent,...
+                'Style', 'pushbutton',...
+                'Units','normalized',...
+                'Position', [0.5 0 0.4 1/3],...
+                'FontUnits','normalized',...
+                'FontSize', 0.3,...
+                'FontWeight', 'bold',...
+                'String', 'Run Full Slide Scan',...
+                'Callback', @(src,evnt)run_eval(this) );
+
+            uicontrol(...
+                'Parent',parent,...
+                'Style', 'pushbutton',...
+                'Units','normalized',...
+                'Position', [0.5 0 0.4 1/3],...
+                'FontUnits','normalized',...
+                'FontSize', 0.3,...
+                'String', 'Last',...
+                'Tag', 'last_img',...
+                'Visible', 'off',...
+                'Callback', @(src,evnt)update_image(this, source) );
+            
+             uicontrol(...
+                'Parent',parent,...
+                'Style', 'pushbutton',...
+                'Units','normalized',...
+                'Position', [0.5 0 0.4 1/3],...
+                'FontUnits','normalized',...
+                'FontSize', 0.3,...
+                'String', 'Next',...
+                'Tag', 'next_img',...
+                'Visible', 'off',...
+                'Callback', @(src,evnt)update_image(this, source) );
+            
         end
-        
         function setup_analysis_layout(this, analysis_tab)
             this.GUI.hAnalysisSidebar = uipanel(this.hFig,...
                 'Units','normalized',...
@@ -1278,6 +1314,8 @@ classdef CoverslideScanner < handle
             this.Analysis.Fluorescence.stats(idx).stripe_width = width_guess;
             this.Analysis.Fluorescence.stats(idx).num_stripes = num_stripes;
         end
+        
+        
         
         %% updater
         function update_navi_focus(this,pos)
@@ -1815,24 +1853,15 @@ classdef CoverslideScanner < handle
             end
         end
         function view_results(this)
-            fluor_stack = this.Analysis.Fluorescence.img_stack;
-            fluor_bw_stack = this.Analysis.Fluorescence.bw_stack;
-            dic_stack = this.Analysis.DIC.img_stack;
-            dic_bw_stack = this.Analysis.DIC.bw_stack;
             
             rank_vec = [this.Analysis.Fluorescence.stats.rank];
             
             [~,idx] = sort( rank_vec );
             
-            figure
-            for i = 1:length(idx)
-                temp_fluor = fluor_stack(:,:,idx(i));
-                temp_dic = dic_stack(:,:,idx(i));
-                temp_dic( bwperim( dic_bw_stack(:,:,idx(i)) ) ) = max( temp_dic(:) );
-                subplot(1,2,1),  imshow( temp_dic, [] )
-                subplot(1,2,2), imshow( temp_fluor, [] )
-                title(sprintf('ranking = %i', i));
-            end
+            this.Analysis.state_data.sorted_idx = idx;
+            this.Analysis.state_data.current_idx = 1;
+            
+            update_analysis_eval_tab(this)            
         end
         function [x_scan, y_scan] = image_center_to_scan_center( this, x_img, y_img, numX, numY )
             % need to get pxSize here
@@ -1958,6 +1987,23 @@ classdef CoverslideScanner < handle
             this.Analysis.filepaths = filepaths;
             imwrite( dic_scan, strcat( this.Analysis.output_dir, 'overview_scan.tiff' ) );
         end
+        function update_analysis_eval_tab(this)
+            
+            idx = this.Analysis.state_data.sorted_idx(this.Analysis.state_data.current_idx);
+            
+            fluor_img = this.Analysis.Fluorescence.img_stack(:,:,idx);
+            dic_img = this.Analysis.DIC.img_stack(:,:,idx);
+            dic_img( bwperim( this.Analysis.DIC.bw_stack(:,:,idx) ) ) = max( dic_img(:) );
+            
+            set( this.GUI.hImg_bw, 'xdata', 1:size(dic_img, 2) );
+                    set( this.GUI.hImg_bw, 'ydata', 1:size(dic_img, 1) );
+                    set( this.GUI.hImg_bw, 'cdata', dic_img ); 
+                    
+            set( this.GUI.hImg_segged, 'xdata', 1:size(fluor_img, 2) );
+            set( this.GUI.hImg_segged, 'ydata', 1:size(fluor_img, 1) );
+            set( this.GUI.hImg_segged, 'cdata', imfill(fluor_img, 'holes' ) );
+            
+        end
         
         %% analysis testing callbacks
         
@@ -1990,7 +2036,13 @@ classdef CoverslideScanner < handle
             update_analysis_tabview(this, 'dic');
             
         end
-        
+        function test_fluorescence_eval(this, img )
+           
+            
+            
+            
+            
+        end
         function update_analysis_tabview(this, mode)
             switch mode
                 case 'dic'
@@ -2010,12 +2062,13 @@ classdef CoverslideScanner < handle
                     hist( this.Analysis.DIC.test.img_entropy(:), 100,...
                                 'Parent', this.GUI.hAx_histogram,...
                                 'XLabel', 'entropy intensity');
+                            
+                case 'full_eval'
                 otherwise
                     
             end
             
         end
-        
         function update_threshold_slider(this, mode)
             switch mode
                 case 'dic'
@@ -2026,7 +2079,6 @@ classdef CoverslideScanner < handle
                     
             end
         end
-        
         function set_dic_clustering_model(this)
              this.Analysis.parameter.model.type = this.Analysis.DIC.test.model;
              switch this.Analysis.parameter.model.type  
@@ -2038,7 +2090,6 @@ classdef CoverslideScanner < handle
                      error('unknown model type specified')
              end
         end
-        
         function update_threshold(this, mode)
             
             size_thresh = 10000;
@@ -2059,8 +2110,7 @@ classdef CoverslideScanner < handle
             update_analysis_tabview(this, mode);
             
         end
-        
-        function [stats, labels] = process_and_label_dic_scan(this, dic_scan, img_dims)
+        function [stats, labels] = label_connected_components(this, dic_scan, img_dims)
             if( ~exist( 'dic_scan', 'var' ) )
                 dic_scan = this.Acq.imgOV;
                 img_dims = get_img_size(this);
@@ -2072,13 +2122,19 @@ classdef CoverslideScanner < handle
             wind = this.Analysis.parameters.entropy_window;
             
             [bw_scan, cc, parameters, ent_smooth] = ...
-                process_and_label_DIC( dic_scan, img_dims, wind )
+                process_and_label_DIC( dic_scan, img_dims, wind );
             
             for i = 1:length( cc )
                 
                 
                 
             end
+            
+        end
+        function update_image(this, source)
+           
+            
+            
             
         end
         

@@ -14,7 +14,7 @@ for i = 1:length( file_paths )
    dic_scan = imread( file_paths );
     
     
-    [stats, labels] = process_and_label_dic_scan( scanner, dic_scan, [1200, 1200] );
+    [stats, labels] = label_conntected_components( scanner, dic_scan, [1200, 1200] );
     
        
     
