@@ -15,13 +15,13 @@ classdef CoverslideScanner < handle
             'hRoi',[])
         BAR
         
-        GUI;
+        GUI
         
         Acq = struct(...
             'ScanSize',10,...
             'LaserWvlnth',405,...
             'z_fluor_est', [],...
-            'z_shift', []) %[nm]
+            'z_shift', []) %[nm]%[nm]
         
         Analysis = struct( ...
             'DIC', struct('bw_img', [],...
@@ -116,13 +116,7 @@ classdef CoverslideScanner < handle
                 'OuterPosition', [0 0.2 1 0.8],...
                 'Box','on');
             
-            [~,temp] = dos('getmac');
-            
-            if( length(temp) > 240 && strcmp( temp(239:255), '08-62-66-B8-34-DD' ) )
-                img = zeros( 600,600 );
-            else
-                img = imread('\\wsvbp\bp-matlab-tools$\CoverslideScanner\Setup.png');
-            end
+            img = imread('\\wsvbp\bp-matlab-tools$\CoverslideScanner\Setup.png');
             imagesc(img,...
                 'Parent',this.GUI.hAxProfile)
             
@@ -220,8 +214,8 @@ classdef CoverslideScanner < handle
             
             colormap(this.GUI.hAxLive,gray(256))
             axis(this.GUI.hAxLive,'image','ij')
-            
-            %------------------------------------------------------------
+               
+            %--------------------------------------------------------------
             %% analysis controls
             analysis_tab = uitab(this.GUI.hTabGrp,...
                 'BackgroundColor','w',...
@@ -238,7 +232,7 @@ classdef CoverslideScanner < handle
             setup_analysis_controls( this, controls_panel );
             
             %--------------------------------------------------------------
- %%           
+            
             this.GUI.hPanelSidebar = uipanel(...
                 'Parent', this.hFig,...
                 'Units','normalized',...
@@ -527,7 +521,7 @@ classdef CoverslideScanner < handle
                 'xdata',[],'ydata',[],'cdata',[],...
                 'Parent',this.GUI.hAxDicBg);
             
-            colormap(this.GUI.hAxDicBg,gray(256))
+            colormap(this.GUI.hAxDicBg,gray(256))    
             
             axis(this.GUI.hAxDicBg,'xy','image','off')
             
@@ -779,7 +773,7 @@ classdef CoverslideScanner < handle
                 'String',fullfile(filePath,[fileName,ext]))
         end %fun
         
-        %% added for analysis tab controls
+                %% added for analysis tab controls
         function setup_analysis_controls(this, parent)
             
             uicontrol(...
@@ -960,6 +954,7 @@ classdef CoverslideScanner < handle
             selection = get(this.GUI.hDropAcqMode,'Value');
             x = option{selection};
         end %fun
+        
         function [ovHeight,ovWidth] = get_overview_size(this,unit)
             imgSize = get_img_size(this);
             
@@ -968,73 +963,35 @@ classdef CoverslideScanner < handle
             
             if strcmp(unit,'µm')
                 pxSize = get_img_px_size(this.MICMAN);
-                
+
                 ovHeight = ovHeight*pxSize; %[µm]
                 ovWidth = ovWidth*pxSize; %[µm]
             end %if
         end %fun
+        
         function dic_scan = get_dic_scan_img(this)
             dic_scan = this.Acq.imgOV;
         end
-        function get_dic_bg(this)
-            set_filter_revolver_position(this.MICMAN,5)
-            set_cleanup_filter_set(this.MICMAN.CleanupFilter,5) %remove any cleanup filter
-            set_transmission_lamp_shutter_state(this.MICMAN,1)
-            
-            %%
-            this.Acq.ImgDicBg = snap_img(this.MICMAN);
-            
-            set(this.GUI.hImgDicBg,...
-                'cdata',this.Acq.ImgDicBg)
-            
-            %%
-            set_transmission_lamp_shutter_state(this.MICMAN,0)
-        end %fun
+        
         function laser = get_laser(this)
-            laser = this.Acq.LaserWvlnth;
+           laser = this.Acq.LaserWvlnth;
         end
-        function get_z_focus_plane_fluorescence(this, z0)
-            laser = get_laser(this);
-            z_diff = -2:.2:2;
-            set_objective_stage_z_position_micron(this.MICMAN,z0)
-            grad_vec = zeros( length( z_diff, 1 ) );
-            pow = 10;
-            for i =  1:length( z_diff )
-               
-                z = z0 + zdiff;
-                % should probably set laser power to low here
-                set_objective_stage_z_position_micron(this.MICMAN,z) 
-%                 set_laser_power(this.MICMAN.Laser,laser,pow);
-                [img,~] = snap_img_fluorescence(this.MICMAN,laser);
-                grad_vec(i) = mean( imgradient( img ) );
-            end
+        function get_z_optimal_plane_iterative(this, num_iterations)
             
-            this.z_fluor_est = z0 + z_diff( grad_vec == max(grad_vec) );
-        end
-        function [img_stack, inc_cell, grad_cell] = get_z_optimal_plane_iterative(this, num_iterations)
-            
-            if(~exist('num_iterations', 'var'))
-                num_iterations = 2;
-            end
             z0 = this.Acq.z_fluor_est;
             inc = -.8:.4:.8;
             grad_vec = zeros( length(inc), 1 );
             done_flag = 0;
-            img_stack = [];
-            inc_cell = {inc};
-            grad_cell = [];
             while(~done_flag)
-                for i = 1:length(inc)
+                for i = length(inc)
                     z = z0 + inc(i);
                     set_objective_stage_z_position_micron(this.MICMAN,z);
-                    [img,~] = snap_img_fluorescence(this.MICMAN,get_laser(this));             
-                    grad_vec(i) = mean( mean( imgradient( img ) ) );
-                    img_stack = cat(3, img_stack, img);
+                    % should probably set laser power to low here
+                    [img,~] = snap_img_fluorescence(this.MICMAN,laser);             
+                    grad_vec(i) = mean( imgradient( img ) );
                 end
-                grad_cell = cat( 2, grad_cell, {grad_vec} );
                 opt_idx = find( grad_vec == max( grad_vec ) );
                 if( opt_idx == 1 || opt_idx == length( inc ) )
-                    fprintf('*****************optimal not found****************\n')
                     z0 = z0 + inc(opt_idx);
                     grad_vec = zeros( length(inc), 1 );
                     continue
@@ -1045,66 +1002,70 @@ classdef CoverslideScanner < handle
                    else
                        inc = inc(2:3); 
                    end
-                   inc_cell = cat( 2, inc_cell, {inc} );
                    done_flag = 1;
                 end
             end
             
             for zz = 1:num_iterations
-                inc = [inc(1), inc(1) + .5*(inc(2)-inc(1)), inc(2)];
-                inc_cell = cat( 2, inc_cell, {inc} );
+                inc = [inc(1), inc(1) + .5*(inc(3)-inc(1)), inc(3)];
                 inc = sort(inc);
-                grad_vec = zeros(length(inc), 1);
                 for i = length(inc)
                     z = z0 + inc(i);
                     set_objective_stage_z_position_micron(this.MICMAN,z);
-                    [img,~] = snap_img_fluorescence(this.MICMAN,get_laser(this));
-                    img_stack = cat(3, img_stack, img);
-                    grad_vec(i) = mean(mean( imgradient( img ) ));
+                    % should set laser power to low here
+                    [img,~] = snap_img_fluorescence(this.MICMAN,laser);             
+                    grad_vec(i) = mean( imgradient( img ) );
                 end
-                grad_cell = cat( 2, grad_cell, {grad_vec} );
 %                 opt_idx = find( grad_vec == max( grad_vec ) );
                 [~, sorted_idx] = sort( grad_vec, 'descend' );
                 inc = sort( inc( sorted_idx(1:2) ) ); % to keep z increment
                                                       % in ascending order
-                inc_cell = cat( 2, inc_cell, {inc} );
                 if( diff(inc) <= 0.1 )
                     continue
                 end
             end
             
             z_shift_est = mean( inc );
-            append_z_shift_vec( this, z_shift_est );
-            set_objective_stage_z_position_micron(this.MICMAN,z0+z_shift_est);
-            [img,~] = snap_img_fluorescence(this.MICMAN,get_laser(this));
-            img_stack = cat(3, img_stack, img);
+            append_z_shift_vec( this, z_shift_est );            
             
         end
-        function img_stack = get_z_optimal_plane_polyfit(this)
+        function get_z_optimal_plane_polyfit(this)
             
             z0 = this.Acq.z_fluor_est;
-            inc = (-.8:.4:.8)';
+            inc = -.8:.4:.8;
             inc_order = [3 4 2 1 5]; % trying to choose acquisition order
-            inc_order_inv = [4 3 1 2 5];% to optimally account for bleaching 
-            grad_vec = zeros( 5, 1 );
-            img_stack = zeros( 1200, 1200, length( inc )+1 );
-            for i = 1:length(inc)
+            inc_order_inv = [4 3 1 2 5];% to optimally account for bleaching
+%             inc = inc( inc_order ); 
+            grad_vec = zeros( 3, 1 );
+            for i = length(inc)
                 z = z0 + inc(inc_order(i));
                 set_objective_stage_z_position_micron(this.MICMAN,z);
-                [img,~] = snap_img_fluorescence(this.MICMAN,get_laser(this));             
-                grad_vec(inc_order_inv(i)) = mean( mean( imgradient( img ) ) );
-                img_stack(:,:,i) = img;
+                % should set laser power to low here
+                [img,~] = snap_img_fluorescence(this.MICMAN,laser);             
+                grad_vec(inc_order_inv(i)) = mean( imgradient( img ) );
             end
 
             p = polyfit( inc, grad_vec, 2 );
             z_shift_est = -p(2)/(2*p(1)); % analytical maximum based on polynomial
 
             append_z_shift_vec( this, z_shift_est );
-            set_objective_stage_z_position_micron(this.MICMAN,z0+z_shift_est);
-            [img,~] = snap_img_fluorescence(this.MICMAN,get_laser(this));
-            img_stack(:,:,length(inc)+1) = img;
 
         end
+        
+        function get_dic_bg(this)
+            set_filter_revolver_position(this.MICMAN,5)
+                    set_cleanup_filter_set(this.MICMAN.CleanupFilter,5) %remove any cleanup filter
+                    set_transmission_lamp_shutter_state(this.MICMAN,1)
+                    
+                    %%                    
+                    this.Acq.ImgDicBg = snap_img(this.MICMAN);
+                    
+                    set(this.GUI.hImgDicBg,...
+                        'cdata',this.Acq.ImgDicBg)
+                    
+                    %%
+                    set_transmission_lamp_shutter_state(this.MICMAN,0)
+        end %fun
         
         %% setter
         function set_img_size(this,x)
@@ -1158,6 +1119,7 @@ classdef CoverslideScanner < handle
                 update_scan_path(this)
             end %if
         end %fun
+        
         function set_exp_time(this,x)
             if ishandle(x)
                 switch get(x,'Style')
@@ -1177,6 +1139,7 @@ classdef CoverslideScanner < handle
                 set(this.GUI.hSliderExpTime,'Value',x)
             end %if
         end %fun
+        
         function set_dic_lamp_voltage(this,x)
             if ishandle(x)
                 switch get(x,'Style')
@@ -1195,6 +1158,7 @@ classdef CoverslideScanner < handle
             set(this.GUI.hSliderLampVoltage,'Value',x)
             %             end %if
         end %fun
+        
         function set_zdc_search_range(this,x)
             if ishandle(x)
                 switch get(x,'Style')
@@ -1214,7 +1178,7 @@ classdef CoverslideScanner < handle
             %             end %if
         end %fun
         function set_zdc_offset(this,x)
-            if not(isnumeric(x))
+            if ishandle(x)
                 switch get(x,'Style')
                     case 'slider'
                         x = get(x,'Value');
@@ -1232,13 +1196,13 @@ classdef CoverslideScanner < handle
             %             end %if
         end %fun
         function set_zdc_state(this,x)
-            if not(isnumeric(x))
+            if ishandle(x)
                 x = get(x,'Value');
             end %if
             
             if x == 1 %switch ZDC auto-focus on
                 scan_and_lock_into_auto_focus(this.MICMAN)
-                
+            
                 if get_auto_focus_state(this.MICMAN)
                     set(this.GUI.hToggleActZdc,...
                         'BackgroundColor',[0.5 1 0.5])
@@ -1251,11 +1215,12 @@ classdef CoverslideScanner < handle
                 set_auto_focus_state(this.MICMAN,0)
                 
                 set(this.GUI.hToggleActZdc,...
-                    'BackgroundColor',[1 0.5 0.5])
+                        'BackgroundColor',[1 0.5 0.5])
             end %if
         end %fun
+        
         function set_fluor_laser_line(this,x)
-            if not(isnumeric(x))
+            if ishandle(x)
                 option = get(x,'String');
                 selection = get(x,'Value');
                 x = str2double(option{selection});
@@ -1268,6 +1233,7 @@ classdef CoverslideScanner < handle
                 'BackgroundColor',[1 0.5 0.5])
             %             end %if
         end %fun
+        
         function set_pos_cleanup_filter_button(this)
             update_screen_shot(this.MICMAN.ScreenShot)
             cleanup_filter_dropdown_pos(this.MICMAN.CleanupFilter)
@@ -1275,6 +1241,7 @@ classdef CoverslideScanner < handle
             set(this.GUI.hToggleCleanupFilterButton,...
                 'BackgroundColor',[0.5 1 0.5])
         end %fun
+        
         function set_pos_laser_power_button(this)
             update_screen_shot(this.MICMAN.ScreenShot)
             set_laser_state_toggle_pos(this.MICMAN.Laser,...
@@ -1283,6 +1250,7 @@ classdef CoverslideScanner < handle
             set(this.GUI.hToggleLaserPowerButton,...
                 'BackgroundColor',[0.5 1 0.5])
         end %fun
+        
         function set_tab(this,evnt)
             switch get(evnt.NewValue,'Title')
                 case 'Live View'
@@ -1320,13 +1288,13 @@ classdef CoverslideScanner < handle
             this.Analysis.Fluorescence.stats(idx).num_stripes = num_stripes;
         end
         
-        
         %% updater
         function update_navi_focus(this,pos)
             set(this.GUI.hAxFocus,...
                 'xlim',[pos(1) pos(1)+pos(3)],...
                 'ylim',[pos(2) pos(2)+pos(4)])
         end %fun
+        
         function update_cam_illu_area(this)
             imgSize = get_img_size(this);
             x0 = (2048-imgSize)/2;
@@ -1415,14 +1383,14 @@ classdef CoverslideScanner < handle
                     'cdata',this.Acq.imgOV)
                 
                 set(this.GUI.hAxFocus,'clim',clim)
-                %                 caxis(this.GUI.hAxFocus,clim)
+%                 caxis(this.GUI.hAxFocus,clim)
                 caxis(this.GUI.NAVI.hAx,clim)
             end %for
             
             %%
             stop_live_view(this)
         end %fun
-        
+                
         function test_overview_dic(this)
            start_live_view(this)
            
@@ -1468,6 +1436,7 @@ classdef CoverslideScanner < handle
             
             
         end
+                
         function start_live_view(this)
             set([this.GUI.hDropAcqMode,...
                 this.GUI.hDropLaserWvlnth,...
@@ -1522,6 +1491,7 @@ classdef CoverslideScanner < handle
         function append_z_shift_vec( this, z_shift )
            this.Acq.z_shift = cat( 1,  this.Acq.z_shift, z_shift ); 
         end
+
         
         %%
         function set_zoom(this,src)
@@ -1551,7 +1521,7 @@ classdef CoverslideScanner < handle
         end %fun
         
         function initialize_micro_manager(this,x)
-            if not(isnumeric(x))
+            if ishandle(x)
                 x = get(x,'Value');
             end %if
             
@@ -1579,7 +1549,7 @@ classdef CoverslideScanner < handle
                 set([this.GUI.hEditProfile,...
                     this.GUI.hPushSwitchProfile],...
                     'Enable','off')
-                
+                                
                 set([this.GUI.hSliderImgSize,...
                     this.GUI.hEditImgSize,...
                     this.GUI.hSliderScanSize,...
@@ -1936,8 +1906,8 @@ classdef CoverslideScanner < handle
                 pause(0.1) %delay for the auto-focus to adapt
                 laser = get_laser(this);
                 %%
-                [dic_img,~] = snap_img_DIC(this.MICMAN);
-                [fluor_img,~] = snap_img_fluorescence(this.MICMAN, laser );
+                [dic_img,~] = snap_img_DIC(this);
+                [fluor_img,~] = snap_img_DIC(this, fluor_img, laser );
                 
                 if get(this.GUI.hCheckFlatFieldCorr,'value')
                     dic_img = dic_img - this.Acq.ImgDicBg;
@@ -2156,6 +2126,5 @@ classdef CoverslideScanner < handle
             
             
         end
-        
     end %methods
 end %classdef

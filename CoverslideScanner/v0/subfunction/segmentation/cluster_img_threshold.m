@@ -1,5 +1,5 @@
 % function bw_img = cluster_img_gmm(img, gmm, size_thresh )
-function bw_img = cluster_img_threshold(img, int_thresh, size_thresh)
+function bw_img = cluster_img_threshold(img, int_thresh, size_thresh, minor_axis_thresh )
 % if stack_dims is [] that means that the image should be assumed to be a
 % single 2D image rather than an array of 2D images composing a larger
 % image
@@ -48,14 +48,26 @@ else
     for i = 1:size(img,3)
         temp = imbinarize( img(:,:,i), int_thresh );
         cc = bwconncomp(temp);
+        
         if( exist('size_thresh', 'var') && ~isempty(size_thresh) )
             bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
             temp(vertcat(cc.PixelIdxList{bSmall})) = 0;
         end
+        cc = bwconncomp(temp);
+        props = regionprops(cc, 'MinorAxisLength', 'Centroid' );
+        centerPt = size( temp )/2;
+        centerPt = centerPt([2, 1]);
+        center_dist = zeros( length( props ), 1 );
+        for j = 1:length( props )
+           center_dist(j) = norm(props(j).Centroid - centerPt);
+        end
+        
+        temp = zeros( size( temp ) );
+        temp( cc.PixelIdxList{ center_dist == min(center_dist) } ) = 1;
+        
         bw_img(:,:,i) = temp;
     end
 end
-% bw_img = imfill( bw_img, 'holes' );
 
 
 end

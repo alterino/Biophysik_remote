@@ -1036,6 +1036,7 @@ classdef classMicroManagerWrapper < handle
             %             set_transmission_lamp_shutter_state(this,0) %close bright-field lamp shutter (in case)
         end %fun
         function [img,meta] = snap_img_DIC(this)
+            set_filter_revolver_position(this,5)
             set_cleanup_filter_set(this.CleanupFilter,5) %remove any cleanup filter
             set_transmission_lamp_shutter_state(this,1)
             
@@ -1087,6 +1088,7 @@ classdef classMicroManagerWrapper < handle
             close(hFig)
         end %fun
         function [img,meta] = snap_img_fluorescence(this,laser)
+            set_filter_revolver_position(this,0)
             set_cleanup_filter_set(this.CleanupFilter,laser) %put respective cleanup filter
             set_laser_state(this.Laser,laser,1); %switch on laser
             

@@ -94,11 +94,11 @@ classdef classCleanupFilterWrapper < handle
         
         %% setter
         function set_cleanup_filter_set(this,filterSet)
-            currentSet = get_cleanup_filter_set(this);
-            if filterSet == currentSet
+%             currentSet = get_cleanup_filter_set(this);
+%             if filterSet == currentSet
                 %no change in current state
-                return
-            end %if
+%                 return
+%             end %if
             
             %save current mouse position
             screenSize = get(0,'ScreenSize');
