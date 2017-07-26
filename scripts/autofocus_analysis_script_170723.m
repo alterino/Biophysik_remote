@@ -3,15 +3,16 @@
 % load('D:\OS_Biophysik\Microscopy\data\autofocustest5.mat')
 
 
-
+imgs = imgs_polyfit;
+clear imgs_polyfit
 
 for i = 1:size( imgs, 2 )
-    for j = 1:size( imgs, 1 )
+%     for j = 1:size( imgs, 1 )
         
         
         %         var_vec = var_cell{j,i};
-        grad_vec = grad_cell{j,i};
-        img_stack = imgs{j,i};
+        grad_vec = grad_cell{i};
+        img_stack = imgs{i};
         
         if( isempty( grad_vec ) )
             continue
@@ -32,5 +33,5 @@ for i = 1:size( imgs, 2 )
         title( sprintf( 'gradient-%i,    default-26',...
             opt_grad_idx) )
         
-    end
+%     end
 end

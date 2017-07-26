@@ -11,20 +11,22 @@
 %     
 %     
 % end
-figure(1)
-for i = 1:length( imgs_iterative )
+
+% imgs_iterative = imgs;
+
+for i = 1:length( imgs_polyfit )
    
-    temp_imgs = imgs_iterative{i};
-    
+    temp_imgs = imgs_polyfit{i};
+    grad_vec = zeros( size( temp_imgs, 3), 1 );
     
     for j = 1:size(temp_imgs, 3)
         
-       imshow( temp_imgs(:,:,j), [] )
-       
+       figure(1), imshow( temp_imgs(:,:,j), [] )
+       grad_vec(j) = mean( mean( imgradient( temp_imgs(:,:,j) ) ) );
        pause(1)
         
     end
     
-    
+    figure(2), plot( z0-1.5:.5:z0+1.5, grad_vec(1:end-1), 'b-' );
     
 end

@@ -56,7 +56,10 @@ classdef CoverslideScanner < handle
                                   'eval_img_dims', [600 600],...
                                   'eval_scan_dims', [],...
                                   'resize_ratio', [],...
-                                  'model', [] ),...
+                                  'cluster_model', [],...
+                                  'stripe_width', [],...
+                                  'space_width', [],...
+                                  'theta', []),...
             'state_data', [],...
             'output_dir', pwd,...
             'filepaths', [] );
@@ -998,7 +1001,7 @@ classdef CoverslideScanner < handle
             z_diff = -2:.2:2;
             set_objective_stage_z_position_micron(this.MICMAN,z0)
             grad_vec = zeros( length( z_diff, 1 ) );
-            pow = 10;
+%             pow = 10;
             for i =  1:length( z_diff )
                
                 z = z0 + zdiff;
@@ -1017,19 +1020,20 @@ classdef CoverslideScanner < handle
                 num_iterations = 2;
             end
             z0 = this.Acq.z_fluor_est;
-            inc = -.8:.4:.8;
+            inc = (-1.5:.5:1.5)';
+            inc_order = [4 3 5 2 6 1 7];
             grad_vec = zeros( length(inc), 1 );
             done_flag = 0;
-            img_stack = [];
+            img_stack = zeros(1200, 1200, 1);
             inc_cell = {inc};
             grad_cell = [];
             while(~done_flag)
                 for i = 1:length(inc)
-                    z = z0 + inc(i);
+                    z = z0 + inc(inc_order(i));
                     set_objective_stage_z_position_micron(this.MICMAN,z);
                     [img,~] = snap_img_fluorescence(this.MICMAN,get_laser(this));             
-                    grad_vec(i) = mean( mean( imgradient( img ) ) );
-                    img_stack = cat(3, img_stack, img);
+                    grad_vec(inc_order(i)) = mean( mean( imgradient( img ) ) );
+                    img_stack(:,:,inc_order(i)) = img;
                 end
                 grad_cell = cat( 2, grad_cell, {grad_vec} );
                 opt_idx = find( grad_vec == max( grad_vec ) );
@@ -1080,20 +1084,21 @@ classdef CoverslideScanner < handle
             img_stack = cat(3, img_stack, img);
             
         end
-        function img_stack = get_z_optimal_plane_polyfit(this)
+        function [img_stack, p] = get_z_optimal_plane_polyfit(this)
             
             z0 = this.Acq.z_fluor_est;
-            inc = (-.8:.4:.8)';
-            inc_order = [3 4 2 1 5]; % trying to choose acquisition order
-            inc_order_inv = [4 3 1 2 5];% to optimally account for bleaching 
+            inc = (-1.5:.5:1.5)';
+            inc_order = [4 3 5 2 6 1 7]; % trying to choose acquisition order
+%             inc_order_inv = [4 3 1 2 5];% to optimally account for bleaching 
             grad_vec = zeros( 5, 1 );
             img_stack = zeros( 1200, 1200, length( inc )+1 );
             for i = 1:length(inc)
                 z = z0 + inc(inc_order(i));
                 set_objective_stage_z_position_micron(this.MICMAN,z);
+                pause(0.1)
                 [img,~] = snap_img_fluorescence(this.MICMAN,get_laser(this));             
-                grad_vec(inc_order_inv(i)) = mean( mean( imgradient( img ) ) );
-                img_stack(:,:,i) = img;
+                grad_vec(inc_order(i)) = mean( mean( imgradient( img ) ) );
+                img_stack(:,:,inc_order(i)) = img;
             end
 
             p = polyfit( inc, grad_vec, 2 );
@@ -1106,9 +1111,56 @@ classdef CoverslideScanner < handle
 
         end
         
+        function [img_stack, p] = get_z_optimal_plane_pattern(this, theta, width)
+            
+            z0 = this.Acq.z_fluor_est;
+            inc = (-.8:.4:.8)';
+%             inc_order = [3 4 2 1 5]; % trying to choose acquisition order
+%             inc_order_inv = [4 3 1 2 5];% to optimally account for bleaching 
+            grad_vec = zeros( 5, 1 );
+            img_stack = zeros( 1200, 1200, length( inc )+1 );
+            for i = 1:length(inc)
+                z = z0 + inc(i);
+                set_objective_stage_z_position_micron(this.MICMAN,z);
+                [img,~] = snap_img_fluorescence(this.MICMAN,get_laser(this)); 
+                
+                bw_fluor = threshold_fluor_img( img, intensity_thresh, size_thresh );
+                if( ~exist( 'theta', 'var' ) || ~exist( 'width', 'var' ) )
+                    [theta_est, pattern, ~, width_est] = est_pattern_orientation( img, bw_fluor );
+                    if( ~exist( 'theta', 'var' ) )
+                        theta = theta_est;
+                    end
+                    if( ~exist( 'width', 'var' ) )
+                        width = width_est;
+                    end
+                end
+                if( ~isempty( thetaD ) )
+                    [x, x_p, y, x_dists] = find_stripe_locations( theta, img, pattern, img_dims );
+                    stripe_bw = ...
+                        generate_stripe_bw( round(x_p), thetaD, img_dims, round(width), bw_fluor  );
+                    bw_edges = bwperim( stripe_bw ); 
+                    grad_im = imgradient( img );
+                    grad_vec(i) = mean( grad_im(bw_edges) );
+                    img_stack(:,:,i) = img;
+                else
+                    fprintf( 'no pattern found at z = %.2f\n', z0 + inc( inc_order(i) ) )
+                    grad_vec(i) = NaN;
+                end
+            end
+%             grad_vec(isnan(grad_vec) = [];
+            p = polyfit( inc(~isnan(grad_vec)), grad_vec(~isnan(grad_vec)), 2 );
+            z_shift_est = -p(2)/(2*p(1)); % analytical maximum based on polynomial
+
+            append_z_shift_vec( this, z_shift_est );
+            set_objective_stage_z_position_micron(this.MICMAN,z0+z_shift_est);
+            [img,~] = snap_img_fluorescence(this.MICMAN,get_laser(this));
+            img_stack(:,:,length(inc)+1) = img;
+
+        end
+        
         %% setter
         function set_img_size(this,x)
-            if ishandle(x)
+            if not(isnumeric(x))
                 switch get(x,'Style')
                     case 'slider'
                         x = get(x,'Value');
@@ -1136,7 +1188,7 @@ classdef CoverslideScanner < handle
             %             end %if
         end %fun
         function set_scan_size(this,x)
-            if ishandle(x)
+            if not(isnumeric(x))
                 switch get(x,'Style')
                     case 'slider'
                         x = get(x,'Value');
@@ -1159,7 +1211,7 @@ classdef CoverslideScanner < handle
             end %if
         end %fun
         function set_exp_time(this,x)
-            if ishandle(x)
+            if not(isnumeric(x))
                 switch get(x,'Style')
                     case 'slider'
                         x = get(x,'Value');
@@ -1178,7 +1230,7 @@ classdef CoverslideScanner < handle
             end %if
         end %fun
         function set_dic_lamp_voltage(this,x)
-            if ishandle(x)
+            if not(isnumeric(x))
                 switch get(x,'Style')
                     case 'slider'
                         x = get(x,'Value');
@@ -1196,7 +1248,7 @@ classdef CoverslideScanner < handle
             %             end %if
         end %fun
         function set_zdc_search_range(this,x)
-            if ishandle(x)
+            if not(isnumeric(x))
                 switch get(x,'Style')
                     case 'slider'
                         x = get(x,'Value');
@@ -1821,11 +1873,21 @@ classdef CoverslideScanner < handle
             
             
         end
-        function get_pattern_orientation(this, img_dims)
+        function [theta_est, width_est] = est_pattern_parameters(this, imgs, set_bool)
             
-           % *************************************
-           % marker for a function that should be written 
-           % ************************************ 
+            thetaD = zeros( size( imgs, 3 ), 1 );
+            width = zeros( size( imgs, 3 ), 1);
+            for i = 1:size(imgs, 3)
+                [thetaD(i), ~, ~, width(i)] = est_pattern_orientation( img, bw_fluor );
+            end
+            
+            theta_est = median( thetaD );
+            width_est = median( width );
+           
+            if(set_bool)
+                this.Analysis.parameters.theta = theta_est;
+                this.Analysis.parameters.stripe_width = width_est;
+            end
             
         end
         function simplified_fluorescence_eval(this)
@@ -2045,7 +2107,7 @@ classdef CoverslideScanner < handle
             
             this.Analysis.DIC.test.bw_img = bw_scan;
             this.Analysis.DIC.test.cc = cc;
-            this.Analysis.DIC.test.model = parameters.type;
+            this.Analysis.DIC.test.cluster_model = parameters.type;
             this.Analysis.DIC.test.threshold = parameters.intensity_threshold;
             this.Analysis.DIC.test.img_entropy = img_entropy;
             update_threshold_slider(this, 'dic');
@@ -2099,12 +2161,12 @@ classdef CoverslideScanner < handle
             end
         end
         function set_dic_clustering_model(this)
-             this.Analysis.parameter.model.type = this.Analysis.DIC.test.model;
-             switch this.Analysis.parameter.model.type  
+             this.Analysis.parameters.cluster_model.type = this.Analysis.DIC.test.model;
+             switch this.Analysis.parameters.cluster_model.type  
                  case 'otzu'
-                     this.Analysis.parameter.model.threshold = this.Analysis.DIC.test.threshold;
+                     this.Analysis.parameters.cluster_model.threshold = this.Analysis.DIC.test.threshold;
                  case 'gmm'
-                     this.Analysis.parameter.model.gmm = this.Analysis.DIC.test.gmm;
+                     this.Analysis.parameters.cluster_model.gmm = this.Analysis.DIC.test.gmm;
                  otherwise
                      error('unknown model type specified')
              end
