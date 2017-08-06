@@ -1,4 +1,4 @@
-function img_bw = threshold_fluor_img( img_stack, threshInt, threshSize )
+function img_bw = threshold_fluor_img( img_stack, threshInt, size_thresh )
 %THRESHOLD_FLUOR_IMG Takes input fluorescence image img and thresholds
 %the image, also eliminating any connected components smaller than
 %size_thresh
@@ -21,7 +21,7 @@ img_bw = imfill( img_bw, 'holes' );
 
 if( exist( 'size_thresh', 'var' ) )
     cc = bwconncomp(img_bw);
-    bSmall = cellfun(@(x)(length(x) < threshSize), cc.PixelIdxList);
+    bSmall = cellfun(@(x)(length(x) < size_thresh), cc.PixelIdxList);
     img_bw(vertcat(cc.PixelIdxList{bSmall})) = 0;
 end
 
