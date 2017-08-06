@@ -6,6 +6,10 @@ if( exist('bw_dic', 'var') )
    img(bw_dic==0) = 0; 
 end
 
+if( ~exist('img_dims', 'var') )
+   img_dims = size(img); 
+end
+
 img_corr = conv2( double(img), double(pattern), 'same');
 
 if(thetaD>0)
