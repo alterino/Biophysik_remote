@@ -55,6 +55,7 @@ sum_derivatives(i) = sum(abs(dy_dx( maxima_idx(i)-12:maxima_idx(i)+12 )));
 end
 
 relative_maxima( sum_derivatives < .015 ) = [];
+y_pts1( sum_derivatives < .015 ) = [];
 
 % [m, i] = max( corr_radon, [], 2 );
 % rad_max_angles = angle_vec( i( find( zero_crossings < 0 ) + 1 ) );
@@ -79,15 +80,15 @@ x_p = x - ( y - img_center(1) )/(-tand(thetaD));
 x_dists = diff(x);
 
 
-% figure(1), imagesc( corr_radon );
-% figure(2), subplot(2,2,1), hold off, plot( xp, sum_normalized, 'g-'), title( 'sum normalized' ), grid on;
-% hold on, plot( relative_maxima, y_pts1, 'r*' )
-% figure(2), subplot(2,2,2), hold off, plot( 1:length(dy_dx), dy_dx, 'g-'), title('derivative of sum normalized'), grid on;
-% hold on, plot( find( zero_crossings < 0 ), y_pts2, 'r*' )
-% figure(2), subplot( 2,2,3), hold off, plot( maxima_idx, sum_derivatives, 'r*' ), grid on, title('derivative sums')
-% xlim([1, length(zero_crossings)]);
-% figure(2), subplot(2,2,4), imagesc( img ), title('image with center points')
-% hold on, plot( x, y, 'r*' );
+figure(1), imagesc( corr_radon );
+figure(2), subplot(2,2,1), hold off, plot( xp, sum_normalized, 'g-'), title( 'sum normalized' ), grid on;
+hold on, plot( relative_maxima, y_pts1, 'r*' )
+figure(2), subplot(2,2,2), hold off, plot( 1:length(dy_dx), dy_dx, 'g-'), title('derivative of sum normalized'), grid on;
+hold on, plot( find( zero_crossings < 0 ), y_pts2, 'r*' )
+figure(2), subplot( 2,2,3), hold off, plot( maxima_idx, sum_derivatives, 'r*' ), grid on, title('derivative sums')
+xlim([1, length(zero_crossings)]);
+figure(2), subplot(2,2,4), imagesc( img ), title('image with center points')
+hold on, plot( x, y, 'r*' );
 
 % if(abs(thetaD)>45)
 %     y_center = ceil(size(img_corr,1)/2);
